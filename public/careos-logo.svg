@@ -1,0 +1,19 @@
+<svg width="640" height="180" viewBox="0 0 640 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1E5BFF"/>
+      <stop offset="100%" stop-color="#35B779"/>
+    </linearGradient>
+  </defs>
+
+  <path d="M92 90C70 58 52 45 33 45C19 45 10 54 10 68C10 83 20 92 35 92C52 92 68 82 92 58C116 82 132 92 149 92C164 92 174 83 174 68C174 54 165 45 151 45C132 45 114 58 92 90ZM92 90C114 122 132 135 151 135C165 135 174 126 174 112C174 97 164 88 149 88C132 88 116 98 92 122C68 98 52 88 35 88C20 88 10 97 10 112C10 126 19 135 33 135C52 135 70 122 92 90Z"
+        fill="url(#g)"/>
+
+  <text x="210" y="82" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="700" fill="#102033">
+    CareOS
+  </text>
+
+  <text x="212" y="122" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500" fill="#6B7A90">
+    Connected care for your family
+  </text>
+</svg>
