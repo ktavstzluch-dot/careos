@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -18,12 +18,21 @@ type Message = {
   created_at: string;
 };
 
-export default function AssistantPage() {
+function AssistantLoading() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#F8FBFF]">
+      <div className="rounded-[28px] bg-white px-8 py-6 shadow-sm shadow-blue-100/60">
+        <p className="text-sm font-medium text-slate-500">Loading CareOS Assistant...</p>
+      </div>
+    </main>
+  );
+}
+
+function AssistantPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preferredChildId = searchParams.get("childId");
 
-  const [userId, setUserId] = useState("");
   const [conversationId, setConversationId] = useState("");
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState(preferredChildId || "");
@@ -41,8 +50,6 @@ export default function AssistantPage() {
         router.push("/sign-in");
         return;
       }
-
-      setUserId(userData.user.id);
 
       const { data: family } = await supabase
         .from("families")
@@ -198,13 +205,7 @@ export default function AssistantPage() {
   }
 
   if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F8FBFF]">
-        <div className="rounded-[28px] bg-white px-8 py-6 shadow-sm shadow-blue-100/60">
-          <p className="text-sm font-medium text-slate-500">Loading CareOS Assistant...</p>
-        </div>
-      </main>
-    );
+    return <AssistantLoading />;
   }
 
   return (
@@ -328,5 +329,13 @@ export default function AssistantPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function AssistantPage() {
+  return (
+    <Suspense fallback={<AssistantLoading />}>
+      <AssistantPageContent />
+    </Suspense>
   );
 }
