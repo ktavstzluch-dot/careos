@@ -264,7 +264,16 @@ export default function MessagesPage() {
     loadedSessions: CareSession[],
     currentUserId: string
   ) {
-    const starterChats = loadedDependents.slice(0, 4).map((dependent) => {
+    const starterChats: Array<{
+      family_id: string;
+      dependent_id: string | null;
+      care_session_id: string | null;
+      title: string;
+      chat_type: ChatType;
+      caregiver_name: string | null;
+      caregiver_role: string | null;
+      created_by: string;
+    }> = loadedDependents.slice(0, 4).map((dependent) => {
       const config = typeConfig[dependent.type];
       const session = loadedSessions.find((item) => item.dependent_id === dependent.id);
 
