@@ -76,7 +76,6 @@ type TimelineItem = {
   title: string;
   note: string;
   detail?: string;
-  timeLabel?: string;
   kind: "system" | "log" | "photo";
   color: "sleep" | "meal" | "medicine" | "mood" | "photo" | "session";
 };
@@ -245,10 +244,13 @@ function formatDuration(totalSeconds: number) {
 
 function formatCareStoryDuration(start: string | null, end: string | null) {
   if (!start || !end) return "";
-  const totalMinutes = Math.max(
+  const totalMilliseconds = Math.max(
     0,
-    Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000),
+    new Date(end).getTime() - new Date(start).getTime(),
   );
+  if (totalMilliseconds < 60000) return "Less than 1 min";
+
+  const totalMinutes = Math.round(totalMilliseconds / 60000);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   if (hours === 0) return `${minutes}m`;
@@ -660,10 +662,6 @@ export default function CareSessionsPage() {
               log.created_at,
             ),
             detail: formatCareStoryDuration(
-              startedLog.created_at,
-              log.created_at,
-            ),
-            timeLabel: formatCareStoryTimeRange(
               startedLog.created_at,
               log.created_at,
             ),
@@ -1765,27 +1763,25 @@ export default function CareSessionsPage() {
                               )}
                             </div>
                             <div
-                              className={`flex-1 rounded-[26px] border p-5 shadow-sm ${styles.card}`}
+                              className={`relative flex-1 rounded-[26px] border p-5 pr-24 shadow-sm ${styles.card}`}
                             >
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-base font-black text-[#102033]">
-                                    {item.title}
+                              <time
+                                className={`absolute right-5 top-5 rounded-full px-3 py-1 text-xs font-bold ${styles.time}`}
+                              >
+                                {formatClockTime(item.time)}
+                              </time>
+                              <div>
+                                <p className="text-base font-black text-[#102033]">
+                                  {item.title}
+                                </p>
+                                <p className="mt-2 text-sm font-semibold leading-6 text-[#102033]">
+                                  {item.note}
+                                </p>
+                                {item.detail && (
+                                  <p className="mt-1 text-sm font-black text-[#6B7A90]">
+                                    {item.detail}
                                   </p>
-                                  <p className="mt-2 text-sm font-semibold leading-6 text-[#102033]">
-                                    {item.note}
-                                  </p>
-                                  {item.detail && (
-                                    <p className="mt-1 text-sm font-black text-[#6B7A90]">
-                                      {item.detail}
-                                    </p>
-                                  )}
-                                </div>
-                                <time
-                                  className={`rounded-full px-3 py-1 text-xs font-bold ${styles.time}`}
-                                >
-                                  {item.timeLabel || formatClockTime(item.time)}
-                                </time>
+                                )}
                               </div>
                             </div>
                           </article>
