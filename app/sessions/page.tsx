@@ -81,13 +81,14 @@ const navItems = [
 ];
 
 const quickEvents = [
-  { type: "meal", title: "Meal", icon: "🍽️", note: "Meal completed." },
-  { type: "medicine", title: "Medicine", icon: "💊", note: "Medicine given." },
-  { type: "sleep", title: "Nap", icon: "🌙", note: "Rest time completed." },
-  { type: "mood", title: "Mood", icon: "😊", note: "Mood checked." },
-  { type: "activity", title: "Activity", icon: "🌳", note: "Activity completed." },
-  { type: "note", title: "Note", icon: "📝", note: "Care note added." },
-];
+  { type: "meal", title: "Meal", icon: "🍽️", note: "Meal completed.", mode: "input", prompt: "What did they eat?" },
+  { type: "medicine", title: "Medicine", icon: "💊", note: "Medicine given.", mode: "input", prompt: "What was given?" },
+  { type: "sleep_start", title: "Start Sleep", icon: "🌙", note: "Sleep started.", mode: "instant" },
+  { type: "sleep_end", title: "End Sleep", icon: "☀️", note: "Sleep ended.", mode: "instant" },
+  { type: "mood", title: "Mood", icon: "😊", note: "Mood checked.", mode: "select", options: ["Happy", "Calm", "Tired", "Upset", "Sick"] },
+  { type: "activity", title: "Activity", icon: "🌳", note: "Activity completed.", mode: "instant" },
+  { type: "note", title: "Note", icon: "📝", note: "Care note added.", mode: "instant" },
+] as const;
 
 const typeConfig: Record<DependentType, { label: string; icon: string; avatar: string; defaultTitle: string; caregiver: string }> = {
   child: { label: "Child", icon: "👶", avatar: "bg-blue-50 text-[#1E5BFF]", defaultTitle: "Nanny Visit", caregiver: "Anna Johnson" },
@@ -167,6 +168,7 @@ function getRemainingSeconds(session: CareSession | null, nowMs: number) {
 }
 
 function getLogIcon(type: string) {
+  if (type === "sleep") return "🌙";
   return quickEvents.find((event) => event.type === type)?.icon || "📝";
 }
 
@@ -218,6 +220,8 @@ export default function CareSessionsPage() {
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
+  const [activeActionType, setActiveActionType] = useState<string | null>(null);
+  const [actionValue, setActionValue] = useState("");
 
   async function loadSessions() {
     const { data: userData } = await supabase.auth.getUser();
@@ -273,6 +277,11 @@ export default function CareSessionsPage() {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setActiveActionType(null);
+    setActionValue("");
+  }, [selectedSessionId]);
 
   const displayName = useMemo(() => getDisplayName(email), [email]);
   const initials = displayName.slice(0, 1).toUpperCase();
@@ -402,25 +411,46 @@ export default function CareSessionsPage() {
     setMessage("Photo uploaded and attached to session timeline.");
   }
 
-  async function addQuickEvent(event: (typeof quickEvents)[number]) {
+  async function saveSessionAction(event: (typeof quickEvents)[number], value = "") {
     setMessage("");
     if (!family || !selectedSession || !selectedDependent) return setMessage("Select a care session first.");
     if (selectedSession.status === "completed" || selectedSession.status === "cancelled") return setMessage("This session is completed. Start a new session to add updates.");
+
+    const trimmedValue = value.trim();
+    if ((event.mode === "input" || event.mode === "select") && !trimmedValue) return setMessage("Please add a value before saving this update.");
+
+    const logType = event.type === "sleep_start" || event.type === "sleep_end" ? "sleep" : event.type;
+    const note = event.type === "meal" && trimmedValue ? `Ate: ${trimmedValue}` : event.type === "medicine" && trimmedValue ? `Given: ${trimmedValue}` : event.type === "mood" && trimmedValue ? `Mood: ${trimmedValue}` : event.note;
+    const logValue = event.type === "sleep_start" ? "start" : event.type === "sleep_end" ? "end" : trimmedValue || null;
 
     const { data, error } = await supabase.from("care_logs").insert({
       family_id: family.id,
       dependent_id: selectedDependent.id,
       care_session_id: selectedSession.id,
       child_id: selectedDependent.type === "child" ? selectedDependent.id : null,
-      type: event.type,
+      type: logType,
       title: event.title,
-      note: event.note,
+      note,
+      value: logValue,
       created_by: userId || null,
     }).select("id, family_id, dependent_id, care_session_id, type, title, note, value, created_at").single();
 
     if (error) return setMessage(error.message);
     setCareLogs([data as CareLog, ...careLogs]);
+    setActiveActionType(null);
+    setActionValue("");
     setMessage(`${event.title} added to session timeline.`);
+  }
+
+  function handleSessionAction(event: (typeof quickEvents)[number]) {
+    if (event.mode === "input" || event.mode === "select") {
+      setMessage("");
+      setActiveActionType((current) => (current === event.type ? null : event.type));
+      setActionValue("");
+      return;
+    }
+
+    void saveSessionAction(event);
   }
 
   async function generateSessionSummary() {
@@ -584,8 +614,8 @@ export default function CareSessionsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-[#6B7A90]">Session Actions</p><h3 className="mt-1 text-xl font-black text-[#102033]">Add updates during care</h3></div><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#6B7A90]">{selectedLogs.length} logs</span></div>
                   <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
                     {quickEvents.map((event) => (
-                      <button key={event.type} onClick={() => addQuickEvent(event)} disabled={selectedSession.status === "completed" || selectedSession.status === "cancelled"} className={`rounded-[22px] border p-4 text-left transition ${selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "border-blue-100 bg-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/40"}`}>
-                        <div className="text-2xl">{event.icon}</div><p className="mt-3 text-sm font-black text-[#102033]">{event.title}</p><p className="mt-1 text-xs text-[#6B7A90]">Add now</p>
+                      <button key={event.type} onClick={() => handleSessionAction(event)} disabled={selectedSession.status === "completed" || selectedSession.status === "cancelled"} className={`rounded-[22px] border p-4 text-left transition ${selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : activeActionType === event.type ? "border-blue-200 bg-blue-50 shadow-sm" : "border-blue-100 bg-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/40"}`}>
+                        <div className="text-2xl">{event.icon}</div><p className="mt-3 text-sm font-black text-[#102033]">{event.title}</p><p className="mt-1 text-xs text-[#6B7A90]">{event.mode === "instant" ? "Add now" : "Add details"}</p>
                       </button>
                     ))}
                     <label className={`rounded-[22px] border p-4 text-left transition ${uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "cursor-pointer border-blue-100 bg-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/40"}`}>
@@ -593,6 +623,28 @@ export default function CareSessionsPage() {
                       <input type="file" accept="image/*" disabled={uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled"} onChange={handleSessionPhotoUpload} className="hidden" />
                     </label>
                   </div>
+                  {quickEvents.map((event) => {
+                    if (activeActionType !== event.type || event.mode === "instant") return null;
+                    return (
+                      <div key={`${event.type}-inline`} className="mt-4 rounded-[24px] border border-blue-100 bg-white p-4 shadow-sm">
+                        {event.mode === "input" ? (
+                          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                            <input value={actionValue} onChange={(inputEvent) => setActionValue(inputEvent.target.value)} placeholder={event.prompt} className="rounded-2xl border border-blue-100 bg-[#FBFDFF] p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]" />
+                            <button onClick={() => saveSessionAction(event, actionValue)} className="rounded-2xl bg-[#1E5BFF] px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700">Save</button>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-sm font-bold text-[#102033]">Select mood</p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {event.options.map((option) => (
+                                <button key={option} onClick={() => saveSessionAction(event, option)} className="rounded-full border border-blue-100 bg-[#FBFDFF] px-4 py-2 text-xs font-bold text-[#102033] transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#1E5BFF]">{option}</button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-6 grid gap-3 md:grid-cols-4">
