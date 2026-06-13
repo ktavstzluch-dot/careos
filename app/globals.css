@@ -6,6 +6,7 @@
   --careos-blue: #2563eb;
   --careos-teal: #14b8a6;
   --careos-muted: #64748b;
+  --font-manrope: "Manrope", Arial, Helvetica, sans-serif;
 }
 
 @theme inline {
