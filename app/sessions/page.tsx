@@ -61,6 +61,18 @@ type Photo = {
   created_by: string | null;
 };
 
+type CareMessage = {
+  id: string;
+  family_id: string;
+  dependent_id: string | null;
+  care_session_id: string | null;
+  sender_role: "parent" | "caregiver" | "support" | "system";
+  sender_name: string | null;
+  body: string;
+  message_type: string;
+  created_at: string | null;
+};
+
 type TimelineItem = {
   id: string;
   time: string | null;
@@ -233,6 +245,55 @@ function getLogIcon(type: string) {
   return quickEvents.find((event) => event.type === type)?.icon || "📝";
 }
 
+function buildSessionSummaryText({
+  session,
+  dependent,
+  logs,
+  photos,
+  messages,
+}: {
+  session: CareSession;
+  dependent: Dependent | null;
+  logs: CareLog[];
+  photos: Photo[];
+  messages: CareMessage[];
+}) {
+  const dependentName = dependent?.name || "The dependent";
+  const caregiverName = session.caregiver_name || "The caregiver";
+  const sessionTitle = session.title || "care session";
+  const completedText = session.status === "completed" ? "The session was completed successfully." : "The session is still in progress.";
+
+  const logTitles = logs
+    .map((log) => log.title || log.type)
+    .filter(Boolean);
+
+  const importantLogs =
+    logTitles.length > 0
+      ? `${dependentName} had updates for ${logTitles.slice(0, 6).join(", ").toLowerCase()}.`
+      : `${dependentName} did not have detailed care log updates yet.`;
+
+  const photoText =
+    photos.length === 1
+      ? "One photo report was uploaded during the session."
+      : photos.length > 1
+        ? `${photos.length} photo reports were uploaded during the session.`
+        : "No photo reports were uploaded yet.";
+
+  const messageText =
+    messages.length > 0
+      ? `${messages.length} chat message${messages.length === 1 ? " was" : "s were"} exchanged during this care session.`
+      : "No session messages were exchanged yet.";
+
+  const timingText =
+    session.check_in_at && session.check_out_at
+      ? `Actual care time was from ${formatClockTime(session.check_in_at)} to ${formatClockTime(session.check_out_at)}.`
+      : session.check_in_at
+        ? `Care started at ${formatClockTime(session.check_in_at)}.`
+        : `The session is scheduled for ${formatDateTime(session.starts_at)}.`;
+
+  return `${sessionTitle} summary: ${caregiverName} cared for ${dependentName}. ${timingText} ${importantLogs} ${photoText} ${messageText} ${completedText}`;
+}
+
 export default function CareSessionsPage() {
   const router = useRouter();
 
@@ -243,6 +304,7 @@ export default function CareSessionsPage() {
   const [sessions, setSessions] = useState<CareSession[]>([]);
   const [careLogs, setCareLogs] = useState<CareLog[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [careMessages, setCareMessages] = useState<CareMessage[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState("");
   const [newDependentId, setNewDependentId] = useState("");
   const [newStartsAt, setNewStartsAt] = useState(toDatetimeLocalValue(new Date()));
@@ -251,6 +313,7 @@ export default function CareSessionsPage() {
   const [newInstructions, setNewInstructions] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [generatingSummary, setGeneratingSummary] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -330,6 +393,14 @@ export default function CareSessionsPage() {
         .order("created_at", { ascending: false });
 
       setPhotos((photosData || []) as Photo[]);
+
+      const { data: messagesData } = await supabase
+        .from("care_messages")
+        .select("id, family_id, dependent_id, care_session_id, sender_role, sender_name, body, message_type, created_at")
+        .in("care_session_id", sessionIds)
+        .order("created_at", { ascending: true });
+
+      setCareMessages((messagesData || []) as CareMessage[]);
     }
 
     setLoading(false);
@@ -369,6 +440,11 @@ export default function CareSessionsPage() {
     if (!selectedSession) return [];
     return photos.filter((photo) => photo.care_session_id === selectedSession.id);
   }, [photos, selectedSession]);
+
+  const selectedMessages = useMemo(() => {
+    if (!selectedSession) return [];
+    return careMessages.filter((item) => item.care_session_id === selectedSession.id);
+  }, [careMessages, selectedSession]);
 
   const sessionTimeline = useMemo(() => {
     if (!selectedSession) return [];
@@ -641,6 +717,44 @@ export default function CareSessionsPage() {
 
     setCareLogs([data as CareLog, ...careLogs]);
     setMessage(`${event.title} added to session timeline.`);
+  }
+
+  async function generateSessionSummary() {
+    setMessage("");
+
+    if (!selectedSession) {
+      setMessage("Select a care session first.");
+      return;
+    }
+
+    setGeneratingSummary(true);
+
+    const summaryText = buildSessionSummaryText({
+      session: selectedSession,
+      dependent: selectedDependent,
+      logs: selectedLogs,
+      photos: selectedPhotos,
+      messages: selectedMessages,
+    });
+
+    const { data, error } = await supabase
+      .from("care_sessions")
+      .update({ summary: summaryText })
+      .eq("id", selectedSession.id)
+      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, check_in_at, check_out_at, instructions, summary, created_at")
+      .single();
+
+    setGeneratingSummary(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    const updated = data as CareSession;
+    setSessions(sessions.map((item) => (item.id === updated.id ? updated : item)));
+    setSelectedSessionId(updated.id);
+    setMessage("AI summary generated and saved.");
   }
 
   if (loading) {
@@ -1028,6 +1142,60 @@ export default function CareSessionsPage() {
                       <p className="mt-1 text-xs text-[#6B7A90]">Add to timeline</p>
                     </button>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {selectedSession && (
+              <section className="rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-xl shadow-blue-100/45">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-[#6B7A90]">AI Session Summary</p>
+                    <h2 className="mt-1 text-2xl font-black text-[#102033]">Care report draft</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
+                      Generates a parent-friendly report from timeline, care logs, photo reports and messages.
+                    </p>
+                  </div>
+                  <button
+                    onClick={generateSessionSummary}
+                    disabled={generatingSummary}
+                    className={`rounded-full px-5 py-3 text-xs font-bold text-white shadow-sm transition ${
+                      generatingSummary
+                        ? "cursor-not-allowed bg-slate-300"
+                        : "bg-[#1E5BFF] shadow-blue-100 hover:bg-blue-700"
+                    }`}
+                  >
+                    {generatingSummary ? "Generating..." : "Generate Summary"}
+                  </button>
+                </div>
+
+                <div className="mt-6 rounded-[28px] bg-white/90 p-5 shadow-sm ring-1 ring-blue-100">
+                  {selectedSession.summary ? (
+                    <p className="text-sm leading-7 text-[#102033]">{selectedSession.summary}</p>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-4xl">🤖</div>
+                      <p className="mt-3 text-sm font-bold text-[#102033]">No summary yet.</p>
+                      <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
+                        Add care events, photo reports or messages, then generate the first session summary.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
+                    <p className="text-2xl font-black text-[#1E5BFF]">{selectedLogs.length}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Care logs</p>
+                  </div>
+                  <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
+                    <p className="text-2xl font-black text-[#22A06B]">{selectedPhotos.length}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Photo reports</p>
+                  </div>
+                  <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
+                    <p className="text-2xl font-black text-violet-700">{selectedMessages.length}</p>
+                    <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Messages</p>
+                  </div>
                 </div>
               </section>
             )}
