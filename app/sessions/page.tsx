@@ -76,6 +76,8 @@ type TimelineItem = {
   title: string;
   note: string;
   detail?: string;
+  photoUrls?: string[];
+  photoAlt?: string;
   kind: "system" | "log" | "photo";
   color: "sleep" | "meal" | "medicine" | "mood" | "photo" | "session";
 };
@@ -688,13 +690,41 @@ export default function CareSessionsPage() {
         kind: "log",
       }),
     );
-    selectedPhotos.forEach((photo) =>
-      items.push({
+    const photoReports = selectedPhotos.reduce<
+      Record<
+        string,
+        { id: string; time: string | null; caption: string; urls: string[] }
+      >
+    >((reports, photo) => {
+      const caption = photo.caption?.trim() || "A new photo report was shared.";
+      const reportMinute = photo.created_at
+        ? new Date(photo.created_at).toISOString().slice(0, 16)
+        : "unknown-time";
+      const key = `${caption}-${reportMinute}`;
+      const current = reports[key] || {
         id: photo.id,
         time: photo.created_at,
+        caption,
+        urls: [],
+      };
+      if (photo.url) current.urls.push(photo.url);
+      reports[key] = current;
+      return reports;
+    }, {});
+
+    Object.values(photoReports).forEach((report) =>
+      items.push({
+        id: report.id,
+        time: report.time,
         icon: "📷",
         title: "Photo Report",
-        note: photo.caption?.trim() || "A new photo report was shared.",
+        note: report.caption,
+        detail:
+          report.urls.length > 1
+            ? `${report.urls.length} photos uploaded`
+            : undefined,
+        photoUrls: report.urls,
+        photoAlt: report.caption,
         kind: "photo",
         color: "photo",
       }),
@@ -829,8 +859,8 @@ export default function CareSessionsPage() {
     event: ChangeEvent<HTMLInputElement>,
   ) {
     setMessage("");
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
     if (!family || !selectedSession || !selectedDependent)
       return setMessage("Select a care session first.");
     if (
@@ -845,43 +875,59 @@ export default function CareSessionsPage() {
     }
 
     setUploadingPhoto(true);
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-    const storagePath = `${family.id}/${selectedDependent.id}/${selectedSession.id}/${Date.now()}-${safeName}`;
-    const { error: uploadError } = await supabase.storage
-      .from("care-photos")
-      .upload(storagePath, file, { cacheControl: "3600", upsert: false });
-    if (uploadError) {
-      setUploadingPhoto(false);
-      setMessage(uploadError.message);
-      event.target.value = "";
-      return;
-    }
+    const caption = photoCaption.trim() || "Session photo update";
+    const uploadedPhotos: Array<{ url: string; storage_path: string }> = [];
 
-    const { data: publicUrlData } = supabase.storage
-      .from("care-photos")
-      .getPublicUrl(storagePath);
-    const { data: photoData, error: photoError } = await supabase
-      .from("photos")
-      .insert({
-        family_id: family.id,
-        dependent_id: selectedDependent.id,
-        care_session_id: selectedSession.id,
+    for (const file of files) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const storagePath = `${family.id}/${selectedDependent.id}/${selectedSession.id}/${Date.now()}-${uploadedPhotos.length}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("care-photos")
+        .upload(storagePath, file, { cacheControl: "3600", upsert: false });
+      if (uploadError) {
+        setUploadingPhoto(false);
+        setMessage(uploadError.message);
+        event.target.value = "";
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("care-photos")
+        .getPublicUrl(storagePath);
+      uploadedPhotos.push({
         url: publicUrlData.publicUrl,
         storage_path: storagePath,
-        caption: photoCaption.trim() || "Session photo update",
-        created_by: userId || null,
-      })
+      });
+    }
+
+    const { data: photoData, error: photoError } = await supabase
+      .from("photos")
+      .insert(
+        uploadedPhotos.map((photo) => ({
+          family_id: family.id,
+          dependent_id: selectedDependent.id,
+          care_session_id: selectedSession.id,
+          url: photo.url,
+          storage_path: photo.storage_path,
+          caption,
+          created_by: userId || null,
+        })),
+      )
       .select(
         "id, family_id, dependent_id, care_session_id, url, storage_path, caption, created_at, created_by",
-      )
-      .single();
+      );
 
     setUploadingPhoto(false);
     event.target.value = "";
     if (photoError) return setMessage(photoError.message);
-    setPhotos([photoData as Photo, ...photos]);
+    const newPhotos = (photoData || []) as Photo[];
+    setPhotos([...newPhotos, ...photos]);
     setPhotoCaption("");
-    setMessage("Photo uploaded and attached to session timeline.");
+    setMessage(
+      newPhotos.length === 1
+        ? "Photo report added to Today's Care Story."
+        : `${newPhotos.length} photos uploaded and added to Today's Care Story.`,
+    );
   }
 
   async function saveSessionAction(
@@ -1436,6 +1482,7 @@ export default function CareSessionsPage() {
                           selectedSession.status === "cancelled"
                         }
                         onChange={handleSessionPhotoUpload}
+                        multiple
                         className="hidden"
                       />
                     </label>
@@ -1638,11 +1685,11 @@ export default function CareSessionsPage() {
                     Photos uploaded during this care session
                   </p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <input
+                    <textarea
                       value={photoCaption}
                       onChange={(event) => setPhotoCaption(event.target.value)}
-                      placeholder="Caption: lunch, playground, walk, medicine..."
-                      className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                      placeholder="Caption or care comment: lunch, playground, walk, medicine..."
+                      className="min-h-24 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
                     />
                     <label
                       className={`cursor-pointer rounded-2xl px-5 py-4 text-center text-sm font-black text-white shadow-lg transition ${uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed bg-slate-300 shadow-none" : "bg-[#1E5BFF] shadow-blue-200 hover:bg-blue-700"}`}
@@ -1657,6 +1704,7 @@ export default function CareSessionsPage() {
                           selectedSession.status === "cancelled"
                         }
                         onChange={handleSessionPhotoUpload}
+                        multiple
                         className="hidden"
                       />
                     </label>
@@ -1781,6 +1829,20 @@ export default function CareSessionsPage() {
                                   <p className="mt-1 text-sm font-black text-[#6B7A90]">
                                     {item.detail}
                                   </p>
+                                )}
+                                {item.photoUrls && item.photoUrls.length > 0 && (
+                                  <a
+                                    href={item.photoUrls[0]}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-4 block w-fit overflow-hidden rounded-[22px] border border-white bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                                  >
+                                    <img
+                                      src={item.photoUrls[0]}
+                                      alt={item.photoAlt || "Photo report"}
+                                      className="h-28 w-36 object-cover"
+                                    />
+                                  </a>
                                 )}
                               </div>
                             </div>
