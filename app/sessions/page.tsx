@@ -167,9 +167,22 @@ function getRemainingSeconds(session: CareSession | null, nowMs: number) {
   return planned;
 }
 
-function getLogIcon(type: string) {
-  if (type === "sleep") return "🌙";
-  return quickEvents.find((event) => event.type === type)?.icon || "📝";
+function getCareStoryLogDetails(log: CareLog): Pick<TimelineItem, "icon" | "title" | "note"> {
+  const value = log.value?.trim();
+  const note = log.note?.trim();
+
+  if (log.type === "sleep") {
+    if (value === "start") return { icon: "🌙", title: "Sleep started", note: note || "Rest time began." };
+    if (value === "end") return { icon: "☀️", title: "Sleep ended", note: note || "Rest time ended." };
+    return { icon: "🌙", title: "Sleep", note: note || (value ? `Sleep: ${value}` : "Sleep update added.") };
+  }
+
+  if (log.type === "meal") return { icon: "🍽️", title: "Meal", note: note || (value ? `Ate: ${value}` : "Meal update added.") };
+  if (log.type === "medicine") return { icon: "💊", title: "Medicine", note: note || (value ? `Given: ${value}` : "Medicine update added.") };
+  if (log.type === "mood") return { icon: "😊", title: "Mood", note: note || (value ? `Mood: ${value}` : "Mood update added.") };
+
+  const event = quickEvents.find((quickEvent) => quickEvent.type === log.type);
+  return { icon: event?.icon || "📝", title: log.title || event?.title || "Care update", note: note || value || "Care update added." };
 }
 
 function buildSessionSummaryText({
@@ -294,12 +307,12 @@ export default function CareSessionsPage() {
   const sessionTimeline = useMemo(() => {
     if (!selectedSession) return [];
     const items: TimelineItem[] = [];
-    if (selectedSession.check_in_at) items.push({ id: "session-started", time: selectedSession.check_in_at, icon: "▶", title: "Session started", note: `${selectedSession.caregiver_name || "Caregiver"} checked in.`, kind: "system" });
-    selectedLogs.forEach((log) => items.push({ id: log.id, time: log.created_at, icon: getLogIcon(log.type), title: log.title || log.type, note: log.note || "Care update added.", kind: "log" }));
-    selectedPhotos.forEach((photo) => items.push({ id: photo.id, time: photo.created_at, icon: "📷", title: "Photo Report", note: photo.caption || "Photo report added.", kind: "photo" }));
-    if (selectedSession.check_out_at) items.push({ id: "session-ended", time: selectedSession.check_out_at, icon: "■", title: "Session ended", note: "Care session was completed.", kind: "system" });
+    if (selectedSession.check_in_at) items.push({ id: "session-started", time: selectedSession.check_in_at, icon: "💚", title: "Care started", note: `${selectedSession.caregiver_name || "Caregiver"} checked in and began caring for ${selectedDependent?.name || "your loved one"}.`, kind: "system" });
+    selectedLogs.forEach((log) => items.push({ id: log.id, time: log.created_at, ...getCareStoryLogDetails(log), kind: "log" }));
+    selectedPhotos.forEach((photo) => items.push({ id: photo.id, time: photo.created_at, icon: "📷", title: "Photo Report", note: photo.caption?.trim() || "A new photo report was shared.", kind: "photo" }));
+    if (selectedSession.check_out_at) items.push({ id: "session-ended", time: selectedSession.check_out_at, icon: "🏡", title: "Care ended", note: "Care session was completed and everyone is all set.", kind: "system" });
     return items.sort((a, b) => (a.time ? new Date(a.time).getTime() : 0) - (b.time ? new Date(b.time).getTime() : 0));
-  }, [selectedLogs, selectedPhotos, selectedSession]);
+  }, [selectedDependent?.name, selectedLogs, selectedPhotos, selectedSession]);
 
   const activeSessions = sessions.filter((session) => session.status === "active").length;
   const scheduledSessions = sessions.filter((session) => session.status === "scheduled").length;
@@ -677,8 +690,8 @@ export default function CareSessionsPage() {
 
             {selectedSession && (
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-                <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm font-semibold text-[#6B7A90]">Session Timeline</p><h2 className="mt-1 text-2xl font-black text-[#102033]">Care activity</h2></div><button onClick={() => router.push("/ai-summary")} className="rounded-full bg-[#1E5BFF] px-5 py-2 text-xs font-bold text-white shadow-sm shadow-blue-100">AI Summary</button></div>
-                {sessionTimeline.length === 0 ? <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center"><div className="text-5xl">📝</div><p className="mt-4 font-semibold text-[#102033]">No timeline yet.</p><p className="mt-2 text-sm text-[#6B7A90]">Start the session or add a quick care event.</p></div> : <div className="mt-7 space-y-4">{sessionTimeline.map((item, index) => <div key={`${item.kind}-${item.id}`} className="flex gap-4"><div className="flex flex-col items-center"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-xl text-[#1E5BFF]">{item.icon}</div>{index < sessionTimeline.length - 1 && <div className="mt-2 h-full min-h-8 w-px bg-blue-100" />}</div><div className="flex-1 rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-4"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-black text-[#102033]">{item.title}</p><p className="text-xs font-semibold text-[#6B7A90]">{formatClockTime(item.time)}</p></div><p className="mt-2 text-sm leading-6 text-[#6B7A90]">{item.note}</p></div></div>)}</div>}
+                <div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm font-semibold text-[#6B7A90]">Session Timeline</p><h2 className="mt-1 text-2xl font-black text-[#102033]">Today&apos;s care story</h2><p className="mt-2 text-sm leading-6 text-[#6B7A90]">A warm, simple recap of each moment shared during this session.</p></div><button onClick={() => router.push("/ai-summary")} className="rounded-full bg-[#1E5BFF] px-5 py-2 text-xs font-bold text-white shadow-sm shadow-blue-100">AI Summary</button></div>
+                {sessionTimeline.length === 0 ? <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center"><div className="text-5xl">🫶</div><p className="mt-4 font-semibold text-[#102033]">No care story yet.</p><p className="mt-2 text-sm text-[#6B7A90]">Start the session or add a quick care event to build the story.</p></div> : <div className="mt-7 rounded-[30px] bg-gradient-to-b from-blue-50/80 to-emerald-50/70 p-4 sm:p-5"><div className="space-y-5">{sessionTimeline.map((item, index) => <article key={`${item.kind}-${item.id}`} className="relative flex gap-4"><div className="flex flex-col items-center"><div className="z-10 flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm ring-1 ring-blue-100">{item.icon}</div>{index < sessionTimeline.length - 1 && <div className="mt-2 h-full min-h-10 w-1 rounded-full bg-gradient-to-b from-blue-100 to-emerald-100" />}</div><div className="flex-1 rounded-[26px] border border-blue-100 bg-white/95 p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-base font-black text-[#102033]">{item.title}</p><p className="mt-2 text-sm leading-6 text-[#6B7A90]">{item.note}</p></div><time className="rounded-full bg-[#F7FAFC] px-3 py-1 text-xs font-bold text-[#1E5BFF]">{formatClockTime(item.time)}</time></div></div></article>)}</div></div>}
               </section>
             )}
           </section>
