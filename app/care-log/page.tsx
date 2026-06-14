@@ -68,7 +68,7 @@ const navItems = [
   { label: "Home", icon: "⌂", href: "/dashboard" },
   { label: "Schedule", icon: "▣", href: "/schedule" },
   { label: "Care Log", icon: "□", href: "/care-log" },
-  { label: "Messages", icon: "◌", href: "/messages" },
+  { label: "Photos", icon: "◍", href: "/photos" },
   { label: "Profile", icon: "♙", href: "/profile" },
 ];
 
@@ -135,6 +135,14 @@ function getLogBg(type: string) {
   return quickEvents.find((event) => event.type === type)?.bg || "bg-slate-100";
 }
 
+function getDisplayName(email?: string) {
+  if (!email) return "Tigran";
+  if (email.toLowerCase().includes("tigerkazaryan")) return "Tigran";
+  const first = email.split("@")[0];
+  if (first.toLowerCase() === "mail") return "Tigran";
+  return first.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default function CareLogPage() {
   const router = useRouter();
 
@@ -147,8 +155,8 @@ export default function CareLogPage() {
   const [selectedQuickType, setSelectedQuickType] = useState("note");
   const [customNote, setCustomNote] = useState("");
   const [message, setMessage] = useState("");
-  const [userName, setUserName] = useState("Tigran");
-  const [userEmail, setUserEmail] = useState("");
+  const [email, setEmail] = useState<string | undefined>("");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -159,11 +167,7 @@ export default function CareLogPage() {
       return;
     }
 
-    setUserEmail(userData.user.email || "");
-    setUserName(
-      (userData.user.user_metadata?.full_name as string | undefined) ||
-        (userData.user.email ? userData.user.email.split("@")[0] : "Tigran")
-    );
+    setEmail(userData.user.email);
 
     const { data: familyData } = await supabase
       .from("families")
@@ -312,6 +316,9 @@ export default function CareLogPage() {
       .slice(0, 3);
   }, [sessions]);
 
+  const displayName = useMemo(() => getDisplayName(email), [email]);
+  const initials = displayName.slice(0, 1).toUpperCase();
+
   const careStory = useMemo(() => {
     if (!selectedSession) return [];
 
@@ -416,7 +423,7 @@ export default function CareLogPage() {
     setMessage(`${quickEvent?.title || "Care update"} added to the care story.`);
   }
 
-  async function signOut() {
+  async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/sign-in");
   }
@@ -434,12 +441,12 @@ export default function CareLogPage() {
   return (
     <main className="min-h-screen bg-[#F7FAFC] pb-28 text-[#102033]">
       <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
-        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-left">
             <CareOSLogo />
           </button>
 
-          <div className="hidden items-center gap-2 justify-self-center rounded-full bg-[#F7FAFC] p-1 md:flex">
+          <div className="hidden items-center gap-2 rounded-full bg-[#F7FAFC] p-1 md:flex">
             {navItems.map((item) => (
               <button
                 key={item.label}
@@ -455,27 +462,32 @@ export default function CareLogPage() {
             ))}
           </div>
 
-          <div className="hidden justify-self-end md:flex">
-            <div className="flex items-center gap-3 rounded-[28px] border border-blue-100 bg-white px-4 py-2 shadow-sm shadow-blue-100/60">
-              <button
-                onClick={() => router.push("/profile")}
-                className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-black uppercase text-white"
-                aria-label="Open profile"
-              >
-                {(userName || userEmail || "T").charAt(0)}
-              </button>
-              <button onClick={() => router.push("/profile")} className="min-w-0 text-left">
-                <p className="truncate text-sm font-black text-[#102033]">{userName || "Profile"}</p>
-                <p className="truncate text-xs font-medium text-[#6B7A90]">{userEmail || "Account"}</p>
-              </button>
-              <button
-                onClick={signOut}
-                className="rounded-full px-2 py-1 text-xs font-bold text-[#6B7A90] transition hover:bg-blue-50 hover:text-[#1E5BFF]"
-                aria-label="Log out"
-              >
-                Logout
-              </button>
-            </div>
+          <div className="relative">
+            <button
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-bold text-white">
+                {initials}
+              </div>
+              <div className="hidden text-left sm:block">
+                <p className="text-sm font-semibold text-[#102033]">{displayName}</p>
+                <p className="max-w-[190px] truncate text-xs text-[#6B7A90]">{email}</p>
+              </div>
+              <span className="text-xs text-[#6B7A90]">⌄</span>
+            </button>
+
+            {accountMenuOpen && (
+              <div className="absolute right-0 mt-3 w-64 rounded-[24px] bg-white p-2 shadow-2xl shadow-blue-100/70 ring-1 ring-blue-100">
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#E5484D] transition hover:bg-red-50"
+                >
+                  Sign Out
+                  <span>↗</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
