@@ -433,10 +433,10 @@ function buildSessionSummaryText({
       : `${dependentName} did not have detailed care log updates yet.`;
   const photoText =
     photos.length === 1
-      ? "One photo report was uploaded during the session."
+      ? "One moment was shared during the session."
       : photos.length > 1
-        ? `${photos.length} photo reports were uploaded during the session.`
-        : "No photo reports were uploaded yet.";
+        ? `${photos.length} moments were shared during the session.`
+        : "No moments were shared yet.";
   const messageText =
     messages.length > 0
       ? `${messages.length} chat message${messages.length === 1 ? " was" : "s were"} exchanged during this care session.`
@@ -875,7 +875,7 @@ export default function CareSessionsPage() {
     }
 
     setUploadingPhoto(true);
-    const caption = photoCaption.trim() || "Session photo update";
+    const caption = photoCaption.trim() || "Moment update";
     const uploadedPhotos: Array<{ url: string; storage_path: string }> = [];
 
     for (const file of files) {
@@ -925,8 +925,8 @@ export default function CareSessionsPage() {
     setPhotoCaption("");
     setMessage(
       newPhotos.length === 1
-        ? "Photo report added to Today's Care Story."
-        : `${newPhotos.length} photos uploaded and added to Today's Care Story.`,
+        ? "Moment added to Today's Care Story."
+        : `${newPhotos.length} moments added to Today's Care Story.`,
     );
   }
 
@@ -1607,7 +1607,7 @@ export default function CareSessionsPage() {
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
                       Generates a parent-friendly report from timeline, care
-                      logs, photo reports and messages.
+                      logs, moments and messages.
                     </p>
                   </div>
                   <button
@@ -1630,7 +1630,7 @@ export default function CareSessionsPage() {
                         No summary yet.
                       </p>
                       <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
-                        Add care events, photo reports or messages, then
+                        Add care events, moments or messages, then
                         generate the first session summary.
                       </p>
                     </div>
@@ -1650,7 +1650,7 @@ export default function CareSessionsPage() {
                       {selectedPhotos.length}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
-                      Photo reports
+                      Moments
                     </p>
                   </div>
                   <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
@@ -1670,31 +1670,31 @@ export default function CareSessionsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-[#6B7A90]">
-                      Photo Reports
+                      Moments
                     </p>
                     <h2 className="mt-1 text-2xl font-black text-[#102033]">
-                      Session photo reports
+                      Share a Moment
                     </h2>
                   </div>
                   <span className="rounded-full bg-[#F7FAFC] px-4 py-2 text-xs font-semibold text-[#6B7A90]">
-                    {selectedPhotos.length} photos
+                    {selectedPhotos.length} moments
                   </span>
                 </div>
                 <div className="mt-6 rounded-[28px] bg-[#F7FAFC] p-5">
                   <p className="text-sm font-semibold text-[#6B7A90]">
-                    Photos uploaded during this care session
+                    Share a photo and a short update with the family.
                   </p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                     <textarea
                       value={photoCaption}
                       onChange={(event) => setPhotoCaption(event.target.value)}
-                      placeholder="Caption or care comment: lunch, playground, walk, medicine..."
+                      placeholder="What's happening right now?"
                       className="min-h-24 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
                     />
                     <label
                       className={`cursor-pointer rounded-2xl px-5 py-4 text-center text-sm font-black text-white shadow-lg transition ${uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed bg-slate-300 shadow-none" : "bg-[#1E5BFF] shadow-blue-200 hover:bg-blue-700"}`}
                     >
-                      {uploadingPhoto ? "Uploading..." : "+ Upload Photo"}
+                      {uploadingPhoto ? "Uploading..." : "Add Photo Update"}
                       <input
                         type="file"
                         accept="image/*"
@@ -1714,10 +1714,10 @@ export default function CareSessionsPage() {
                   <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
                     <div className="text-5xl">📷</div>
                     <p className="mt-4 font-semibold text-[#102033]">
-                      No session photos yet.
+                      No moments shared yet
                     </p>
                     <p className="mt-2 text-sm text-[#6B7A90]">
-                      Upload photos during the care session.
+                      Share photos and updates from the care session.
                     </p>
                   </div>
                 ) : (
@@ -1734,21 +1734,21 @@ export default function CareSessionsPage() {
                         >
                           <img
                             src={photo.url || ""}
-                            alt={photo.caption || "Session photo"}
+                            alt={photo.caption || "Moment photo"}
                             className="h-40 w-full object-cover"
                           />
                         </a>
                         <div className="p-4">
                           <div className="flex items-center justify-between gap-3">
                             <p className="truncate text-sm font-black text-[#102033]">
-                              {photo.caption || "Session photo"}
+                              {photo.caption || "Moment update"}
                             </p>
                             <p className="shrink-0 text-xs font-semibold text-[#6B7A90]">
                               {formatClockTime(photo.created_at)}
                             </p>
                           </div>
                           <p className="mt-1 text-xs text-[#6B7A90]">
-                            Photo report
+                            Moment
                           </p>
                         </div>
                       </article>
@@ -1839,7 +1839,7 @@ export default function CareSessionsPage() {
                                   >
                                     <img
                                       src={item.photoUrls[0]}
-                                      alt={item.photoAlt || "Photo report"}
+                                      alt={item.photoAlt || "Moment"}
                                       className="h-28 w-36 object-cover"
                                     />
                                   </a>
