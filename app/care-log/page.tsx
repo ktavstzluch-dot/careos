@@ -147,6 +147,8 @@ export default function CareLogPage() {
   const [selectedQuickType, setSelectedQuickType] = useState("note");
   const [customNote, setCustomNote] = useState("");
   const [message, setMessage] = useState("");
+  const [userName, setUserName] = useState("Tigran");
+  const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -156,6 +158,12 @@ export default function CareLogPage() {
       router.push("/sign-in");
       return;
     }
+
+    setUserEmail(userData.user.email || "");
+    setUserName(
+      (userData.user.user_metadata?.full_name as string | undefined) ||
+        (userData.user.email ? userData.user.email.split("@")[0] : "Tigran")
+    );
 
     const { data: familyData } = await supabase
       .from("families")
@@ -408,6 +416,11 @@ export default function CareLogPage() {
     setMessage(`${quickEvent?.title || "Care update"} added to the care story.`);
   }
 
+  async function signOut() {
+    await supabase.auth.signOut();
+    router.push("/sign-in");
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F7FAFC]">
@@ -421,12 +434,12 @@ export default function CareLogPage() {
   return (
     <main className="min-h-screen bg-[#F7FAFC] pb-28 text-[#102033]">
       <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-left">
             <CareOSLogo />
           </button>
 
-          <div className="hidden items-center gap-2 rounded-full bg-[#F7FAFC] p-1 md:flex">
+          <div className="hidden items-center gap-2 justify-self-center rounded-full bg-[#F7FAFC] p-1 md:flex">
             {navItems.map((item) => (
               <button
                 key={item.label}
@@ -440,6 +453,29 @@ export default function CareLogPage() {
                 {item.label}
               </button>
             ))}
+          </div>
+
+          <div className="hidden justify-self-end md:flex">
+            <div className="flex items-center gap-3 rounded-[28px] border border-blue-100 bg-white px-4 py-2 shadow-sm shadow-blue-100/60">
+              <button
+                onClick={() => router.push("/profile")}
+                className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-black uppercase text-white"
+                aria-label="Open profile"
+              >
+                {(userName || userEmail || "T").charAt(0)}
+              </button>
+              <button onClick={() => router.push("/profile")} className="min-w-0 text-left">
+                <p className="truncate text-sm font-black text-[#102033]">{userName || "Profile"}</p>
+                <p className="truncate text-xs font-medium text-[#6B7A90]">{userEmail || "Account"}</p>
+              </button>
+              <button
+                onClick={signOut}
+                className="rounded-full px-2 py-1 text-xs font-bold text-[#6B7A90] transition hover:bg-blue-50 hover:text-[#1E5BFF]"
+                aria-label="Log out"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </header>
