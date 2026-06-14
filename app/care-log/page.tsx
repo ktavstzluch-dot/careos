@@ -68,7 +68,7 @@ const navItems = [
   { label: "Home", icon: "⌂", href: "/dashboard" },
   { label: "Schedule", icon: "▣", href: "/schedule" },
   { label: "Care Log", icon: "□", href: "/care-log" },
-  { label: "AI Summary", icon: "✦", href: "/ai-summary" },
+  { label: "Messages", icon: "◌", href: "/messages" },
   { label: "Profile", icon: "♙", href: "/profile" },
 ];
 
@@ -77,7 +77,7 @@ const quickEvents = [
   { type: "nap", icon: "🌙", title: "Nap", note: "Rest completed.", color: "text-violet-600", bg: "bg-violet-50" },
   { type: "medicine", icon: "💊", title: "Medicine", note: "Medicine given.", color: "text-blue-600", bg: "bg-blue-50" },
   { type: "activity", icon: "🌳", title: "Activity", note: "Activity completed.", color: "text-[#22A06B]", bg: "bg-emerald-50" },
-  { type: "photo", icon: "📷", title: "Photo Report", note: "Photo update added.", color: "text-sky-600", bg: "bg-sky-50" },
+  { type: "photo", icon: "📷", title: "Moment", note: "Photo update added.", color: "text-sky-600", bg: "bg-sky-50" },
   { type: "note", icon: "📝", title: "Note", note: "Care note added.", color: "text-slate-600", bg: "bg-slate-100" },
 ];
 
@@ -304,7 +304,7 @@ export default function CareLogPage() {
       .slice(0, 3);
   }, [sessions]);
 
-  const timeline = useMemo(() => {
+  const careStory = useMemo(() => {
     if (!selectedSession) return [];
 
     const items: TimelineItem[] = [];
@@ -339,7 +339,7 @@ export default function CareLogPage() {
         time: photo.created_at,
         icon: "📷",
         color: "text-sky-600",
-        title: "Photo Report",
+        title: "Moment",
         note: photo.caption || "Photo update uploaded.",
         kind: "photo",
       });
@@ -405,7 +405,7 @@ export default function CareLogPage() {
     });
 
     setCustomNote("");
-    setMessage(`${quickEvent?.title || "Care update"} added to timeline.`);
+    setMessage(`${quickEvent?.title || "Care update"} added to the care story.`);
   }
 
   if (loading) {
@@ -457,7 +457,7 @@ export default function CareLogPage() {
             <p className="text-sm font-semibold text-[#6B7A90]">Care Log</p>
             <h1 className="mt-1 text-4xl font-black tracking-tight text-[#102033]">Session updates</h1>
             <p className="mt-3 text-base leading-7 text-[#6B7A90]">
-              Add meals, walks, medicine, activities, photo reports and notes directly into the active care session.
+              Add meals, walks, medicine, activities, moments and notes directly into the active care session.
             </p>
 
             <div className="mt-7 rounded-[30px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5">
@@ -474,7 +474,7 @@ export default function CareLogPage() {
                   ) : (
                     <>
                       <h2 className="mt-1 text-2xl font-black text-[#102033]">No session selected</h2>
-                      <p className="mt-2 text-sm text-[#6B7A90]">Create or select a care session to attach logs.</p>
+                      <p className="mt-2 text-sm text-[#6B7A90]">Create or select a care session to attach updates.</p>
                     </>
                   )}
                 </div>
@@ -549,7 +549,7 @@ export default function CareLogPage() {
                   onClick={() => addQuickEvent(selectedQuickType, customNote)}
                   className="rounded-2xl bg-[#35B779] p-4 text-sm font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-[#22A06B]"
                 >
-                  Add to Timeline
+                  Add to Care Story
                 </button>
 
                 {message && <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22A06B]">{message}</p>}
@@ -623,28 +623,28 @@ export default function CareLogPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-[#6B7A90]">Today</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#102033]">Session Timeline</h2>
+                  <h2 className="mt-1 text-3xl font-black text-[#102033]">Today’s Care Story</h2>
                 </div>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22A06B]">
-                  {timeline.length} updates
+                  {careStory.length} updates
                 </span>
               </div>
 
-              {timeline.length === 0 ? (
+              {careStory.length === 0 ? (
                 <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                   <div className="text-5xl">📝</div>
-                  <p className="mt-4 font-semibold text-[#102033]">No session logs yet.</p>
+                  <p className="mt-4 font-semibold text-[#102033]">No session updates yet.</p>
                   <p className="mt-2 text-sm text-[#6B7A90]">Add the first care update for this session.</p>
                 </div>
               ) : (
                 <div className="mt-7 space-y-4">
-                  {timeline.map((item, index) => (
+                  {careStory.map((item, index) => (
                     <div key={`${item.kind}-${item.id}`} className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.kind === "photo" ? "bg-sky-50" : getLogBg(item.kind === "log" ? selectedLogs.find((log) => log.id === item.id)?.type || "note" : "note")} text-xl ${item.color}`}>
                           {item.icon}
                         </div>
-                        {index < timeline.length - 1 && <div className="mt-2 h-full min-h-8 w-px bg-blue-100" />}
+                        {index < careStory.length - 1 && <div className="mt-2 h-full min-h-8 w-px bg-blue-100" />}
                       </div>
 
                       <article className="flex-1 rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-4 transition hover:bg-white hover:shadow-lg hover:shadow-blue-100/40">
@@ -665,9 +665,9 @@ export default function CareLogPage() {
                 <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🤖</div>
                 <div>
                   <p className="text-sm font-semibold text-[#6B7A90]">AI Summary</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#102033]">Generate from Timeline</h2>
+                  <h2 className="mt-1 text-2xl font-black text-[#102033]">Generate Daily Story</h2>
                   <p className="mt-3 text-sm leading-6 text-[#6B7A90]">
-                    Next step: CareOS will turn this session timeline, photo reports and messages into a clean daily report.
+                    Next step: CareOS will turn this care story, moments and messages into a clean Daily Story.
                   </p>
                   <button
                     onClick={() => router.push("/ai-summary")}
