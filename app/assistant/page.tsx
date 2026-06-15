@@ -214,7 +214,7 @@ function AssistantPageContent() {
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <button
             onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-blue-700"
+            className="rounded-2xl bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-[#2563EB]"
           >
             ← Dashboard
           </button>
@@ -228,7 +228,7 @@ function AssistantPageContent() {
 
       <section className="mx-auto grid max-w-7xl gap-6 px-6 py-10 lg:grid-cols-[0.8fr_1.2fr]">
         <aside className="rounded-[38px] bg-gradient-to-br from-white via-blue-50/70 to-teal-50 p-8 shadow-xl shadow-blue-100/50">
-          <div className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-medium text-blue-700 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100">
+          <div className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-medium text-[#2563EB] shadow-sm shadow-blue-100/50 ring-1 ring-blue-100">
             AI care support
           </div>
 
@@ -291,7 +291,7 @@ function AssistantPageContent() {
                   <div
                     className={`max-w-[82%] rounded-[26px] px-5 py-4 text-sm leading-6 shadow-sm ${
                       item.role === "user"
-                        ? "bg-blue-600 text-white shadow-blue-100"
+                        ? "bg-[#2563EB] text-white shadow-blue-100"
                         : "bg-[#F8FBFF] text-slate-700 shadow-blue-50 ring-1 ring-blue-50"
                     }`}
                   >
@@ -314,7 +314,7 @@ function AssistantPageContent() {
               <button
                 onClick={handleSend}
                 disabled={sending}
-                className="rounded-[24px] bg-gradient-to-br from-blue-600 to-teal-500 px-6 text-sm font-medium text-white shadow-lg shadow-blue-200 transition hover:from-blue-700 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-[24px] bg-gradient-to-br from-[#2563EB] to-[#22C55E] px-6 text-sm font-medium text-white shadow-lg shadow-blue-200 transition hover:from-blue-700 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {sending ? "..." : "Send"}
               </button>

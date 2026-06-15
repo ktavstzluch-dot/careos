@@ -65,38 +65,42 @@ type TimelineItem = {
 };
 
 const navItems = [
-  { label: "Home", icon: "⌂", href: "/dashboard" },
-  { label: "Schedule", icon: "▣", href: "/schedule" },
-  { label: "Care Log", icon: "□", href: "/care-log" },
-  { label: "Photos", icon: "◍", href: "/photos" },
-  { label: "Profile", icon: "♙", href: "/profile" },
+  { label: "Home", icon: "\u2302", href: "/dashboard" },
+  { label: "Schedule", icon: "\u25A3", href: "/schedule" },
+  { label: "Care Log", icon: "\u25A1", href: "/care-log" },
+  { label: "Photos", icon: "\u25CD", href: "/photos" },
+  { label: "Profile", icon: "\u2659", href: "/profile" },
 ];
 
 const quickEvents = [
   { type: "meal", icon: "🍽️", title: "Meal", note: "Meal completed.", color: "text-emerald-600", bg: "bg-emerald-50" },
   { type: "nap", icon: "🌙", title: "Nap", note: "Rest completed.", color: "text-violet-600", bg: "bg-violet-50" },
   { type: "medicine", icon: "💊", title: "Medicine", note: "Medicine given.", color: "text-blue-600", bg: "bg-blue-50" },
-  { type: "activity", icon: "🌳", title: "Activity", note: "Activity completed.", color: "text-[#22A06B]", bg: "bg-emerald-50" },
+  { type: "activity", icon: "🌳", title: "Activity", note: "Activity completed.", color: "text-[#22C55E]", bg: "bg-emerald-50" },
   { type: "photo", icon: "📷", title: "Moment", note: "Photo update added.", color: "text-sky-600", bg: "bg-sky-50" },
   { type: "note", icon: "📝", title: "Note", note: "Care note added.", color: "text-slate-600", bg: "bg-slate-100" },
 ];
 
 const typeConfig: Record<DependentType, { label: string; icon: string; chip: string }> = {
-  child: { label: "Child", icon: "👶", chip: "bg-blue-50 text-[#1E5BFF]" },
-  pet: { label: "Pet", icon: "🐾", chip: "bg-emerald-50 text-[#22A06B]" },
+  child: { label: "Child", icon: "👶", chip: "bg-blue-50 text-[#2563EB]" },
+  pet: { label: "Pet", icon: "🐾", chip: "bg-emerald-50 text-[#22C55E]" },
   elder: { label: "Elder", icon: "🧓", chip: "bg-violet-50 text-violet-700" },
 };
 
 function CareOSLogo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-12 w-12 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-[34px] font-black leading-none text-white shadow-lg shadow-blue-100">
-        ∞
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-[18px] border-[4px] border-[#2563EB] bg-white shadow-lg shadow-blue-100">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#22C55E] text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+            <path d="M12 20.2 5.9 14.7C2.5 11.6 2.3 7.1 5.4 4.8 7.2 3.5 9.8 3.8 12 6c2.2-2.2 4.8-2.5 6.6-1.2 3.1 2.3 2.9 6.8-.5 9.9L12 20.2Z" />
+          </svg>
+        </div>
       </div>
       <div>
-        <div className="text-xl font-black tracking-tight text-[#102033]">CareOS</div>
-        <div className="hidden text-xs font-medium text-[#6B7A90] sm:block">
-          Connected care for your family
+        <div className="text-2xl font-black tracking-tight text-[#0F172A]">CareOS</div>
+        <div className="hidden text-xs font-medium text-[#64748B] sm:block">
+          Trusted care for kids, pets and home
         </div>
       </div>
     </div>
@@ -329,7 +333,7 @@ export default function CareLogPage() {
         id: "session-started",
         time: selectedSession.check_in_at,
         icon: "▶",
-        color: "text-[#22A06B]",
+        color: "text-[#22C55E]",
         title: "Session Started",
         note: `${selectedSession.caregiver_name || "Caregiver"} checked in.`,
         kind: "system",
@@ -365,7 +369,7 @@ export default function CareLogPage() {
         id: "session-ended",
         time: selectedSession.check_out_at,
         icon: "■",
-        color: "text-[#E5484D]",
+        color: "text-[#EF4444]",
         title: "Session Ended",
         note: "Care session completed.",
         kind: "system",
@@ -430,31 +434,31 @@ export default function CareLogPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F7FAFC]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
-          <p className="text-sm font-medium text-[#6B7A90]">Loading Care Log...</p>
+          <p className="text-sm font-medium text-[#64748B]">Loading Care Log...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F7FAFC] pb-28 text-[#102033]">
+    <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
       <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-left">
             <CareOSLogo />
           </button>
 
-          <div className="hidden items-center gap-2 rounded-full bg-[#F7FAFC] p-1 md:flex">
+          <div className="hidden items-center gap-2 rounded-full bg-[#F8FAFC] p-1 md:flex">
             {navItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => router.push(item.href)}
                 className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                   item.label === "Care Log"
-                    ? "bg-[#1E5BFF] text-white shadow-sm shadow-blue-200"
-                    : "text-[#6B7A90] hover:bg-white hover:text-[#1E5BFF]"
+                    ? "bg-[#2563EB] text-white shadow-sm shadow-blue-200"
+                    : "text-[#64748B] hover:bg-white hover:text-[#2563EB]"
                 }`}
               >
                 {item.label}
@@ -467,21 +471,21 @@ export default function CareLogPage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
                 {initials}
               </div>
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#102033]">{displayName}</p>
-                <p className="max-w-[190px] truncate text-xs text-[#6B7A90]">{email}</p>
+                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
+                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
               </div>
-              <span className="text-xs text-[#6B7A90]">⌄</span>
+              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
 
             {accountMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 rounded-[24px] bg-white p-2 shadow-2xl shadow-blue-100/70 ring-1 ring-blue-100">
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#E5484D] transition hover:bg-red-50"
+                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
                 >
                   Sign Out
                   <span>↗</span>
@@ -497,38 +501,38 @@ export default function CareLogPage() {
           <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
             <button
               onClick={() => router.push("/dashboard")}
-              className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F7FAFC] text-[#102033] transition hover:bg-blue-50 hover:text-[#1E5BFF]"
+              className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F8FAFC] text-[#0F172A] transition hover:bg-blue-50 hover:text-[#2563EB]"
             >
               ←
             </button>
 
-            <p className="text-sm font-semibold text-[#6B7A90]">Care Log</p>
-            <h1 className="mt-1 text-4xl font-black tracking-tight text-[#102033]">Session updates</h1>
-            <p className="mt-3 text-base leading-7 text-[#6B7A90]">
+            <p className="text-sm font-semibold text-[#64748B]">Care Log</p>
+            <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Session updates</h1>
+            <p className="mt-3 text-base leading-7 text-[#64748B]">
               Add meals, walks, medicine, activities, moments and notes directly into the active care session.
             </p>
 
             <div className="mt-7 rounded-[30px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">Active Session</p>
+                  <p className="text-sm font-semibold text-[#64748B]">Active Session</p>
                   {selectedSession && selectedDependent ? (
                     <>
-                      <h2 className="mt-1 text-2xl font-black text-[#102033]">{selectedSession.title || "Care Session"}</h2>
-                      <p className="mt-2 text-sm text-[#6B7A90]">
+                      <h2 className="mt-1 text-2xl font-black text-[#0F172A]">{selectedSession.title || "Care Session"}</h2>
+                      <p className="mt-2 text-sm text-[#64748B]">
                         {selectedSession.caregiver_name || "Caregiver"} with {selectedDependent.name}
                       </p>
                     </>
                   ) : (
                     <>
-                      <h2 className="mt-1 text-2xl font-black text-[#102033]">No session selected</h2>
-                      <p className="mt-2 text-sm text-[#6B7A90]">Create or select a care session to attach updates.</p>
+                      <h2 className="mt-1 text-2xl font-black text-[#0F172A]">No session selected</h2>
+                      <p className="mt-2 text-sm text-[#64748B]">Create or select a care session to attach updates.</p>
                     </>
                   )}
                 </div>
 
                 {selectedSession && (
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22A06B]">
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">
                     {selectedSession.status}
                   </span>
                 )}
@@ -536,31 +540,31 @@ export default function CareLogPage() {
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-[22px] bg-white/90 p-4 shadow-sm">
-                  <p className="text-xs font-semibold text-[#6B7A90]">Start</p>
-                  <p className="mt-1 text-sm font-black text-[#102033]">{formatSessionTime(selectedSession?.starts_at || null)}</p>
+                  <p className="text-xs font-semibold text-[#64748B]">Start</p>
+                  <p className="mt-1 text-sm font-black text-[#0F172A]">{formatSessionTime(selectedSession?.starts_at || null)}</p>
                 </div>
                 <div className="rounded-[22px] bg-white/90 p-4 shadow-sm">
-                  <p className="text-xs font-semibold text-[#6B7A90]">End</p>
-                  <p className="mt-1 text-sm font-black text-[#102033]">{formatSessionTime(selectedSession?.ends_at || null)}</p>
+                  <p className="text-xs font-semibold text-[#64748B]">End</p>
+                  <p className="mt-1 text-sm font-black text-[#0F172A]">{formatSessionTime(selectedSession?.ends_at || null)}</p>
                 </div>
               </div>
 
               <button
                 onClick={() => router.push("/sessions")}
-                className="mt-5 rounded-full bg-[#1E5BFF] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
+                className="mt-5 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
               >
                 Manage Sessions
               </button>
             </div>
 
-            <div className="mt-6 rounded-[28px] bg-[#F7FAFC] p-5">
-              <p className="text-sm font-semibold text-[#6B7A90]">Attach to session</p>
+            <div className="mt-6 rounded-[28px] bg-[#F8FAFC] p-5">
+              <p className="text-sm font-semibold text-[#64748B]">Attach to session</p>
 
               <div className="mt-4 grid gap-3">
                 <select
                   value={selectedSessionId}
                   onChange={(event) => setSelectedSessionId(event.target.value)}
-                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-semibold outline-none transition focus:border-[#1E5BFF]"
+                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-semibold outline-none transition focus:border-[#2563EB]"
                 >
                   {sessions.length === 0 && <option value="">No sessions</option>}
                   {sessions.map((session) => {
@@ -577,7 +581,7 @@ export default function CareLogPage() {
                 <select
                   value={selectedQuickType}
                   onChange={(event) => setSelectedQuickType(event.target.value)}
-                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-semibold outline-none transition focus:border-[#1E5BFF]"
+                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-semibold outline-none transition focus:border-[#2563EB]"
                 >
                   {quickEvents.map((event) => (
                     <option key={event.type} value={event.type}>
@@ -590,32 +594,32 @@ export default function CareLogPage() {
                   value={customNote}
                   onChange={(event) => setCustomNote(event.target.value)}
                   placeholder="Example: Lunch completed, medicine given, outdoor activity..."
-                  className="min-h-28 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                  className="min-h-28 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                 />
 
                 <button
                   onClick={() => addQuickEvent(selectedQuickType, customNote)}
-                  className="rounded-2xl bg-[#35B779] p-4 text-sm font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-[#22A06B]"
+                  className="rounded-2xl bg-[#22C55E] p-4 text-sm font-bold text-white shadow-lg shadow-emerald-100 transition hover:bg-[#22C55E]"
                 >
                   Add to Care Story
                 </button>
 
-                {message && <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22A06B]">{message}</p>}
+                {message && <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22C55E]">{message}</p>}
               </div>
             </div>
 
             <div className="mt-6 rounded-[36px] border border-blue-100 bg-white p-5 shadow-sm">
-              <p className="text-sm font-semibold text-[#6B7A90]">Quick Actions</p>
+              <p className="text-sm font-semibold text-[#64748B]">Quick Actions</p>
               <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
                 {quickEvents.map((event) => (
                   <button
                     key={event.type}
                     onClick={() => addQuickEvent(event.type)}
-                    className="rounded-[22px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-blue-100/40"
+                    className="rounded-[22px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-lg hover:shadow-blue-100/40"
                   >
                     <div className="text-2xl">{event.icon}</div>
-                    <p className="mt-3 text-sm font-black text-[#102033]">{event.title}</p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">Add instantly</p>
+                    <p className="mt-3 text-sm font-black text-[#0F172A]">{event.title}</p>
+                    <p className="mt-1 text-xs text-[#64748B]">Add instantly</p>
                   </button>
                 ))}
               </div>
@@ -626,12 +630,12 @@ export default function CareLogPage() {
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">Upcoming Today</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#102033]">Next sessions</h2>
+                  <p className="text-sm font-semibold text-[#64748B]">Upcoming Today</p>
+                  <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Next sessions</h2>
                 </div>
                 <button
                   onClick={() => router.push("/schedule")}
-                  className="rounded-full bg-blue-50 px-4 py-2 text-xs font-bold text-[#1E5BFF]"
+                  className="rounded-full bg-blue-50 px-4 py-2 text-xs font-bold text-[#2563EB]"
                 >
                   Schedule
                 </button>
@@ -639,7 +643,7 @@ export default function CareLogPage() {
 
               {upcomingToday.length === 0 ? (
                 <div className="mt-5 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center">
-                  <p className="text-sm font-semibold text-[#102033]">No upcoming scheduled sessions.</p>
+                  <p className="text-sm font-semibold text-[#0F172A]">No upcoming scheduled sessions.</p>
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">
@@ -651,12 +655,12 @@ export default function CareLogPage() {
                       <button
                         key={session.id}
                         onClick={() => setSelectedSessionId(session.id)}
-                        className="flex w-full items-center gap-4 rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:bg-white"
+                        className="flex w-full items-center gap-4 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:bg-white"
                       >
                         <div className="text-2xl">{config?.icon || "🫶"}</div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-black text-[#102033]">{session.title || "Care Session"}</p>
-                          <p className="mt-1 text-xs text-[#6B7A90]">
+                          <p className="truncate text-sm font-black text-[#0F172A]">{session.title || "Care Session"}</p>
+                          <p className="mt-1 text-xs text-[#64748B]">
                             {dependent?.name || "Dependent"} · {formatSessionTime(session.starts_at)}
                           </p>
                         </div>
@@ -670,10 +674,10 @@ export default function CareLogPage() {
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">Today</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#102033]">Today’s Care Story</h2>
+                  <p className="text-sm font-semibold text-[#64748B]">Today</p>
+                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today’s Care Story</h2>
                 </div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22A06B]">
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">
                   {careStory.length} updates
                 </span>
               </div>
@@ -681,8 +685,8 @@ export default function CareLogPage() {
               {careStory.length === 0 ? (
                 <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                   <div className="text-5xl">📝</div>
-                  <p className="mt-4 font-semibold text-[#102033]">No session updates yet.</p>
-                  <p className="mt-2 text-sm text-[#6B7A90]">Add the first care update for this session.</p>
+                  <p className="mt-4 font-semibold text-[#0F172A]">No session updates yet.</p>
+                  <p className="mt-2 text-sm text-[#64748B]">Add the first care update for this session.</p>
                 </div>
               ) : (
                 <div className="mt-7 space-y-4">
@@ -695,12 +699,12 @@ export default function CareLogPage() {
                         {index < careStory.length - 1 && <div className="mt-2 h-full min-h-8 w-px bg-blue-100" />}
                       </div>
 
-                      <article className="flex-1 rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-4 transition hover:bg-white hover:shadow-lg hover:shadow-blue-100/40">
+                      <article className="flex-1 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-4 transition hover:bg-white hover:shadow-lg hover:shadow-blue-100/40">
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-sm font-black text-[#102033]">{item.title}</p>
-                          <p className="text-xs font-semibold text-[#6B7A90]">{formatTime(item.time)}</p>
+                          <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
+                          <p className="text-xs font-semibold text-[#64748B]">{formatTime(item.time)}</p>
                         </div>
-                        <p className="mt-2 text-sm leading-6 text-[#6B7A90]">{item.note}</p>
+                        <p className="mt-2 text-sm leading-6 text-[#64748B]">{item.note}</p>
                       </article>
                     </div>
                   ))}
@@ -712,14 +716,14 @@ export default function CareLogPage() {
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🤖</div>
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">AI Summary</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#102033]">Generate Daily Story</h2>
-                  <p className="mt-3 text-sm leading-6 text-[#6B7A90]">
+                  <p className="text-sm font-semibold text-[#64748B]">AI Summary</p>
+                  <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Generate Daily Story</h2>
+                  <p className="mt-3 text-sm leading-6 text-[#64748B]">
                     Next step: CareOS will turn this care story, moments and messages into a clean Daily Story.
                   </p>
                   <button
                     onClick={() => router.push("/ai-summary")}
-                    className="mt-5 rounded-full bg-[#1E5BFF] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
+                    className="mt-5 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
                   >
                     Open AI Summary
                   </button>
@@ -737,7 +741,7 @@ export default function CareLogPage() {
               key={item.label}
               onClick={() => router.push(item.href)}
               className={`rounded-2xl px-2 py-2 text-center text-[11px] font-semibold ${
-                item.label === "Care Log" ? "bg-blue-50 text-[#1E5BFF]" : "text-[#6B7A90]"
+                item.label === "Care Log" ? "bg-blue-50 text-[#2563EB]" : "text-[#64748B]"
               }`}
             >
               <div className="text-lg leading-5">{item.icon}</div>

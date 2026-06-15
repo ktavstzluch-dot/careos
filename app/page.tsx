@@ -2,6 +2,25 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+
+function CareOSLogo() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-[18px] border-[4px] border-[#2563EB] bg-white shadow-lg shadow-blue-100">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#22C55E] text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+            <path d="M12 20.2 5.9 14.7C2.5 11.6 2.3 7.1 5.4 4.8 7.2 3.5 9.8 3.8 12 6c2.2-2.2 4.8-2.5 6.6-1.2 3.1 2.3 2.9 6.8-.5 9.9L12 20.2Z" />
+          </svg>
+        </div>
+      </div>
+      <div>
+        <div className="text-2xl font-black tracking-tight text-[#0F172A]">CareOS</div>
+        <div className="hidden text-xs font-medium text-[#64748B] sm:block">Trusted care for kids, pets and home</div>
+      </div>
+    </div>
+  );
+}
+
 const features = [
   {
     title: "Live care status",
@@ -54,23 +73,18 @@ export default function Home() {
     setStatus("You're on the waitlist!");
   }
   return (
-    <main className="min-h-screen bg-[#F8FAFC] text-slate-900">
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
+    <main className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+      <header className="border-b border-blue-100/70 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-600 text-white font-bold">
-              C
-            </div>
-            <span className="text-xl font-bold">CareOS</span>
-          </div>
+          <CareOSLogo />
 
-          <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
-            <a href="#features" className="hover:text-blue-600">Features</a>
-            <a href="#carelog" className="hover:text-blue-600">Care Log</a>
-            <a href="#waitlist" className="hover:text-blue-600">Waitlist</a>
+          <nav className="hidden items-center gap-2 rounded-full bg-[#F8FAFC] p-1 text-sm font-semibold text-[#64748B] md:flex">
+            <a href="#features" className="rounded-full px-4 py-2 hover:bg-white hover:text-[#2563EB]">Features</a>
+            <a href="#carelog" className="rounded-full px-4 py-2 hover:bg-white hover:text-[#2563EB]">Care Log</a>
+            <a href="#waitlist" className="rounded-full px-4 py-2 hover:bg-white hover:text-[#2563EB]">Waitlist</a>
           </nav>
 
-          <button className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700">
+          <button className="rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-sm shadow-blue-200 hover:bg-[#1D4ED8]">
             Join Waitlist
           </button>
         </div>
@@ -78,38 +92,38 @@ export default function Home() {
 
       <section className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 lg:grid-cols-2">
         <div>
-          <div className="mb-6 inline-flex rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+          <div className="mb-6 inline-flex rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-[#2563EB]">
             Trusted care for kids, pets, elders & home
           </div>
 
-          <h1 className="text-5xl font-bold tracking-tight text-slate-950 md:text-7xl">
+          <h1 className="text-5xl font-black tracking-tight text-[#0F172A] md:text-7xl">
             Know everything is okay while you are away.
           </h1>
 
-          <p className="mt-6 max-w-xl text-xl leading-8 text-slate-600">
+          <p className="mt-6 max-w-xl text-xl leading-8 text-[#64748B]">
             CareOS helps families manage caregivers, schedules, care logs,
             messages, photos and AI summaries in one calm, trusted place.
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <button className="rounded-2xl bg-blue-600 px-8 py-4 font-semibold text-white shadow-lg shadow-blue-200 hover:bg-blue-700">
+            <button className="rounded-2xl bg-[#2563EB] px-8 py-4 font-bold text-white shadow-lg shadow-blue-200 hover:bg-[#1D4ED8]">
               Join Waitlist
             </button>
 
-            <button className="rounded-2xl border border-slate-300 bg-white px-8 py-4 font-semibold text-slate-800 hover:bg-slate-50">
+            <button className="rounded-2xl border border-blue-100 bg-white px-8 py-4 font-bold text-[#0F172A] hover:bg-[#F8FAFC]">
               See how it works
             </button>
           </div>
         </div>
 
-        <div className="rounded-[2rem] bg-white p-6 shadow-2xl shadow-slate-200">
-          <div className="rounded-[1.5rem] bg-slate-50 p-5">
+        <div className="rounded-[32px] border border-blue-100 bg-white p-6 shadow-2xl shadow-blue-100/60">
+          <div className="rounded-[24px] bg-[#F8FAFC] p-5">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Today</p>
-                <h2 className="text-2xl font-bold">Care Status</h2>
+                <p className="text-sm text-[#64748B]">Today</p>
+                <h2 className="text-2xl font-black">Care Status</h2>
               </div>
-              <div className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
+              <div className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-[#22C55E]">
                 All good
               </div>
             </div>
@@ -136,8 +150,8 @@ export default function Home() {
               </div>
 
               <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-                <p className="text-sm font-semibold text-blue-700">AI Summary</p>
-                <p className="mt-2 text-slate-700">
+                <p className="text-sm font-semibold text-[#2563EB]">AI Summary</p>
+                <p className="mt-2 text-[#64748B]">
                   Emma had lunch, took a 1-hour nap and played outside.
                   Max walked 1.4 miles and had water after the walk.
                 </p>
@@ -149,36 +163,36 @@ export default function Home() {
 
       <section id="features" className="mx-auto max-w-7xl px-6 py-16">
         <div className="mb-10 max-w-2xl">
-          <h2 className="text-4xl font-bold">One platform. Every care moment.</h2>
-          <p className="mt-4 text-lg text-slate-600">
+          <h2 className="text-4xl font-black">One platform. Every care moment.</h2>
+          <p className="mt-4 text-lg text-[#64748B]">
             Designed for families who want peace of mind and caregivers who need a simple workflow.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-4">
           {features.map((feature) => (
-            <div key={feature.title} className="rounded-3xl bg-white p-6 shadow-sm">
+            <div key={feature.title} className="rounded-[28px] border border-blue-100 bg-white p-6 shadow-sm shadow-blue-100/50">
               <div className="text-3xl">{feature.icon}</div>
-              <h3 className="mt-5 text-lg font-bold">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{feature.description}</p>
+              <h3 className="mt-5 text-lg font-black">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#64748B]">{feature.description}</p>
             </div>
           ))}
         </div>
       </section>
 
       <section id="carelog" className="mx-auto max-w-7xl px-6 py-16">
-        <div className="rounded-[2rem] bg-slate-900 p-8 text-white md:p-12">
+        <div className="rounded-[32px] border border-blue-100 bg-white p-8 shadow-xl shadow-blue-100/45 md:p-12">
           <div className="grid gap-10 lg:grid-cols-2">
             <div>
-              <p className="text-sm font-semibold text-blue-300">Care Log</p>
-              <h2 className="mt-3 text-4xl font-bold">Every update becomes a clear timeline.</h2>
-              <p className="mt-5 text-lg leading-8 text-slate-300">
+              <p className="text-sm font-semibold text-[#2563EB]">Care Log</p>
+              <h2 className="mt-3 text-4xl font-black text-[#0F172A]">Every update becomes a clear care story.</h2>
+              <p className="mt-5 text-lg leading-8 text-[#64748B]">
                 Caregivers can log meals, walks, medicine, activities, photos and notes.
                 Parents see everything in one place.
               </p>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 text-slate-900">
+            <div className="rounded-[28px] bg-[#F8FAFC] p-6 text-[#0F172A]">
               <div className="space-y-5">
                 <div>
                   <p className="text-sm text-slate-500">3:04 PM</p>
@@ -192,7 +206,7 @@ export default function Home() {
                   <p className="text-sm text-slate-500">5:20 PM</p>
                   <p className="font-semibold">Outdoor play · 3 photos uploaded</p>
                 </div>
-                <div className="rounded-2xl bg-green-50 p-4 text-green-800">
+                <div className="rounded-2xl bg-emerald-50 p-4 text-[#22C55E]">
                   AI summary ready for review
                 </div>
               </div>
@@ -202,8 +216,8 @@ export default function Home() {
       </section>
 
       <section id="waitlist" className="mx-auto max-w-3xl px-6 py-20 text-center">
-        <h2 className="text-4xl font-bold">Join the CareOS waitlist</h2>
-        <p className="mt-4 text-lg text-slate-600">
+        <h2 className="text-4xl font-black">Join the CareOS waitlist</h2>
+        <p className="mt-4 text-lg text-[#64748B]">
           Be first to test the private beta for families and trusted caregivers.
         </p>
 
@@ -213,16 +227,16 @@ export default function Home() {
             placeholder="Enter your email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="flex-1 rounded-2xl border border-slate-300 bg-white px-5 py-4 outline-none focus:border-blue-500"
+            className="flex-1 rounded-2xl border border-blue-100 bg-white px-5 py-4 outline-none focus:border-[#2563EB]"
           />
          <button
          onClick={handleWaitlistSubmit}
-         className="rounded-2xl bg-blue-600 px-8 py-4 font-semibold text-white hover:bg-blue-700"
+         className="rounded-2xl bg-[#2563EB] px-8 py-4 font-bold text-white shadow-lg shadow-blue-200 hover:bg-[#1D4ED8]"
          >
          Request Access
          </button>
          {status && (
-         <p className="mt-4 text-sm font-medium text-slate-600">
+         <p className="mt-4 text-sm font-medium text-[#64748B]">
          {status}
          </p>
          )}
