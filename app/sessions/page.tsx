@@ -83,11 +83,11 @@ type TimelineItem = {
 };
 
 const navItems = [
-  { label: "Home", icon: "⌂", href: "/dashboard" },
-  { label: "Schedule", icon: "▣", href: "/schedule" },
-  { label: "Care Log", icon: "□", href: "/care-log" },
-  { label: "AI Summary", icon: "✦", href: "/ai-summary" },
-  { label: "Profile", icon: "♙", href: "/profile" },
+  { label: "Home", icon: "\u2302", href: "/dashboard" },
+  { label: "Schedule", icon: "\u25A3", href: "/schedule" },
+  { label: "Care Log", icon: "\u25A1", href: "/care-log" },
+  { label: "Photos", icon: "\u25CD", href: "/photos" },
+  { label: "Profile", icon: "\u2659", href: "/profile" },
 ];
 
 const quickEvents = [
@@ -158,14 +158,14 @@ const typeConfig: Record<
   child: {
     label: "Child",
     icon: "👶",
-    avatar: "bg-blue-50 text-[#1E5BFF]",
+    avatar: "bg-blue-50 text-[#2563EB]",
     defaultTitle: "Nanny Visit",
     caregiver: "Anna Johnson",
   },
   pet: {
     label: "Pet",
     icon: "🐾",
-    avatar: "bg-emerald-50 text-[#22A06B]",
+    avatar: "bg-emerald-50 text-[#22C55E]",
     defaultTitle: "Dog Walk",
     caregiver: "Mike Walker",
   },
@@ -179,24 +179,26 @@ const typeConfig: Record<
 };
 
 const statusStyles: Record<SessionStatus, string> = {
-  scheduled: "bg-blue-50 text-[#1E5BFF]",
-  active: "bg-emerald-50 text-[#22A06B]",
+  scheduled: "bg-blue-50 text-[#2563EB]",
+  active: "bg-emerald-50 text-[#22C55E]",
   completed: "bg-slate-100 text-slate-600",
-  cancelled: "bg-red-50 text-[#E5484D]",
+  cancelled: "bg-red-50 text-[#EF4444]",
 };
 
 function CareOSLogo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-12 w-12 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-[34px] font-black leading-none text-white shadow-lg shadow-blue-100">
-        ∞
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-[18px] border-[4px] border-[#2563EB] bg-white shadow-lg shadow-blue-100">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#22C55E] text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+            <path d="M12 20.2 5.9 14.7C2.5 11.6 2.3 7.1 5.4 4.8 7.2 3.5 9.8 3.8 12 6c2.2-2.2 4.8-2.5 6.6-1.2 3.1 2.3 2.9 6.8-.5 9.9L12 20.2Z" />
+          </svg>
+        </div>
       </div>
       <div>
-        <div className="text-xl font-black tracking-tight text-[#102033]">
-          CareOS
-        </div>
-        <div className="hidden text-xs font-medium text-[#6B7A90] sm:block">
-          Connected care for your family
+        <div className="text-2xl font-black tracking-tight text-[#0F172A]">CareOS</div>
+        <div className="hidden text-xs font-medium text-[#64748B] sm:block">
+          Trusted care for kids, pets and home
         </div>
       </div>
     </div>
@@ -317,7 +319,7 @@ const careStoryColorStyles: Record<
   meal: {
     icon: "bg-emerald-50 ring-emerald-100",
     card: "border-emerald-100 bg-emerald-50/75",
-    time: "bg-white text-[#22A06B]",
+    time: "bg-white text-[#22C55E]",
     connector: "from-emerald-100 to-emerald-100",
   },
   medicine: {
@@ -329,7 +331,7 @@ const careStoryColorStyles: Record<
   mood: {
     icon: "bg-blue-50 ring-blue-100",
     card: "border-blue-100 bg-blue-50/75",
-    time: "bg-white text-[#1E5BFF]",
+    time: "bg-white text-[#2563EB]",
     connector: "from-blue-100 to-blue-100",
   },
   photo: {
@@ -1038,9 +1040,9 @@ export default function CareSessionsPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F7FAFC]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
-          <p className="text-sm font-medium text-[#6B7A90]">
+          <p className="text-sm font-medium text-[#64748B]">
             Loading Care Sessions...
           </p>
         </div>
@@ -1049,7 +1051,7 @@ export default function CareSessionsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7FAFC] pb-28 text-[#102033]">
+    <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
       <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <button
@@ -1058,12 +1060,12 @@ export default function CareSessionsPage() {
           >
             <CareOSLogo />
           </button>
-          <div className="hidden items-center gap-2 rounded-full bg-[#F7FAFC] p-1 md:flex">
+          <div className="hidden items-center gap-2 rounded-full bg-[#F8FAFC] p-1 md:flex">
             {navItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => router.push(item.href)}
-                className="rounded-full px-4 py-2 text-xs font-semibold text-[#6B7A90] transition hover:bg-white hover:text-[#1E5BFF]"
+                className="rounded-full px-4 py-2 text-xs font-semibold text-[#64748B] transition hover:bg-white hover:text-[#2563EB]"
               >
                 {item.label}
               </button>
@@ -1074,24 +1076,24 @@ export default function CareSessionsPage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
                 {initials}
               </div>
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#102033]">
+                <p className="text-sm font-semibold text-[#0F172A]">
                   {displayName}
                 </p>
-                <p className="max-w-[190px] truncate text-xs text-[#6B7A90]">
+                <p className="max-w-[190px] truncate text-xs text-[#64748B]">
                   {email}
                 </p>
               </div>
-              <span className="text-xs text-[#6B7A90]">⌄</span>
+              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
             {accountMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 rounded-[24px] bg-white p-2 shadow-2xl shadow-blue-100/70 ring-1 ring-blue-100">
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#E5484D] transition hover:bg-red-50"
+                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
                 >
                   Sign Out<span>↗</span>
                 </button>
@@ -1106,35 +1108,35 @@ export default function CareSessionsPage() {
           <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
             <button
               onClick={() => router.push("/dashboard")}
-              className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F7FAFC] text-[#102033] transition hover:bg-blue-50 hover:text-[#1E5BFF]"
+              className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F8FAFC] text-[#0F172A] transition hover:bg-blue-50 hover:text-[#2563EB]"
             >
               ←
             </button>
-            <p className="text-sm font-semibold text-[#6B7A90]">
+            <p className="text-sm font-semibold text-[#64748B]">
               Care Sessions
             </p>
-            <h1 className="mt-1 text-4xl font-black tracking-tight text-[#102033]">
+            <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">
               Live care center
             </h1>
-            <p className="mt-3 text-base leading-7 text-[#6B7A90]">
+            <p className="mt-3 text-base leading-7 text-[#64748B]">
               Start a care session, add one-tap updates, and keep the full
               timeline in one place.
             </p>
 
             <div className="mt-7 grid grid-cols-3 gap-3">
               <div className="rounded-[24px] bg-emerald-50 p-4">
-                <p className="text-3xl font-black text-[#22A06B]">
+                <p className="text-3xl font-black text-[#22C55E]">
                   {activeSessions}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">
                   Active
                 </p>
               </div>
               <div className="rounded-[24px] bg-blue-50 p-4">
-                <p className="text-3xl font-black text-[#1E5BFF]">
+                <p className="text-3xl font-black text-[#2563EB]">
                   {scheduledSessions}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">
                   Scheduled
                 </p>
               </div>
@@ -1142,21 +1144,21 @@ export default function CareSessionsPage() {
                 <p className="text-3xl font-black text-slate-600">
                   {completedSessions}
                 </p>
-                <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">
                   Completed
                 </p>
               </div>
             </div>
 
-            <div className="mt-7 rounded-[28px] bg-[#F7FAFC] p-5">
-              <p className="text-sm font-semibold text-[#6B7A90]">
+            <div className="mt-7 rounded-[28px] bg-[#F8FAFC] p-5">
+              <p className="text-sm font-semibold text-[#64748B]">
                 Create session
               </p>
               <div className="mt-4 grid gap-3">
                 <select
                   value={newDependentId}
                   onChange={(event) => setNewDependentId(event.target.value)}
-                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-semibold outline-none transition focus:border-[#1E5BFF]"
+                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-semibold outline-none transition focus:border-[#2563EB]"
                 >
                   {dependents.map((dependent) => (
                     <option key={dependent.id} value={dependent.id}>
@@ -1168,36 +1170,36 @@ export default function CareSessionsPage() {
                   value={newCaregiver}
                   onChange={(event) => setNewCaregiver(event.target.value)}
                   placeholder="Caregiver name"
-                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                  className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                 />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     type="datetime-local"
                     value={newStartsAt}
                     onChange={(event) => setNewStartsAt(event.target.value)}
-                    className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                    className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                   />
                   <input
                     type="datetime-local"
                     value={newEndsAt}
                     onChange={(event) => setNewEndsAt(event.target.value)}
-                    className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                    className="rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                   />
                 </div>
                 <textarea
                   value={newInstructions}
                   onChange={(event) => setNewInstructions(event.target.value)}
                   placeholder="Instructions: medicine, feeding, routines, emergency notes..."
-                  className="min-h-24 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                  className="min-h-24 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                 />
                 <button
                   onClick={createSession}
-                  className="rounded-2xl bg-[#1E5BFF] p-4 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+                  className="rounded-2xl bg-[#2563EB] p-4 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
                 >
                   Create Care Session
                 </button>
                 {message && (
-                  <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22A06B]">
+                  <p className="rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22C55E]">
                     {message}
                   </p>
                 )}
@@ -1209,14 +1211,14 @@ export default function CareSessionsPage() {
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">
+                  <p className="text-sm font-semibold text-[#64748B]">
                     Sessions
                   </p>
-                  <h2 className="mt-1 text-3xl font-black text-[#102033]">
+                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">
                     Today&apos;s care
                   </h2>
                 </div>
-                <span className="rounded-full bg-[#F7FAFC] px-4 py-2 text-xs font-semibold text-[#6B7A90]">
+                <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                   {family?.name || "Family"}
                 </span>
               </div>
@@ -1224,10 +1226,10 @@ export default function CareSessionsPage() {
               {sessions.length === 0 ? (
                 <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                   <div className="text-5xl">🫶</div>
-                  <p className="mt-4 font-semibold text-[#102033]">
+                  <p className="mt-4 font-semibold text-[#0F172A]">
                     No care sessions yet.
                   </p>
-                  <p className="mt-2 text-sm text-[#6B7A90]">
+                  <p className="mt-2 text-sm text-[#64748B]">
                     Create the first session to track start, end and care
                     timeline.
                   </p>
@@ -1245,7 +1247,7 @@ export default function CareSessionsPage() {
                         <button
                           key={session.id}
                           onClick={() => setSelectedSessionId(session.id)}
-                          className={`w-full rounded-[28px] border p-4 text-left transition ${selectedSessionId === session.id ? "border-blue-200 bg-blue-50/70 shadow-sm" : "border-blue-100 bg-[#FBFDFF] hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"}`}
+                          className={`w-full rounded-[28px] border p-4 text-left transition ${selectedSessionId === session.id ? "border-blue-200 bg-blue-50/70 shadow-sm" : "border-blue-100 bg-[#FFFFFF] hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"}`}
                         >
                           <div className="flex items-start gap-4">
                             <div
@@ -1255,7 +1257,7 @@ export default function CareSessionsPage() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="truncate text-sm font-black text-[#102033]">
+                                <p className="truncate text-sm font-black text-[#0F172A]">
                                   {session.title || "Care Session"}
                                 </p>
                                 <span
@@ -1264,13 +1266,13 @@ export default function CareSessionsPage() {
                                   {session.status}
                                 </span>
                               </div>
-                              <p className="mt-1 text-xs font-semibold text-[#1E5BFF]">
+                              <p className="mt-1 text-xs font-semibold text-[#2563EB]">
                                 {dependent?.name || "Dependent"}
                               </p>
-                              <p className="mt-1 text-xs text-[#6B7A90]">
+                              <p className="mt-1 text-xs text-[#64748B]">
                                 {formatDateTime(session.starts_at)}
                               </p>
-                              <p className="mt-2 text-xs text-[#6B7A90]">
+                              <p className="mt-2 text-xs text-[#64748B]">
                                 {stats.logs} logs · {stats.photos} photos
                               </p>
                             </div>
@@ -1288,14 +1290,14 @@ export default function CareSessionsPage() {
                             className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[selectedSession.status]}`}
                           >
                             {selectedSession.status === "active" && (
-                              <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
+                              <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
                             )}
                             {selectedSession.status}
                           </span>
-                          <h3 className="mt-4 text-3xl font-black text-[#102033]">
+                          <h3 className="mt-4 text-3xl font-black text-[#0F172A]">
                             {selectedSession.title || "Care Session"}
                           </h3>
-                          <p className="mt-2 text-sm text-[#6B7A90]">
+                          <p className="mt-2 text-sm text-[#64748B]">
                             {selectedSession.caregiver_name || "Caregiver"} with{" "}
                             {selectedDependent.name}
                           </p>
@@ -1304,51 +1306,51 @@ export default function CareSessionsPage() {
                           onClick={() =>
                             router.push(`/dependent/${selectedDependent.id}`)
                           }
-                          className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#6B7A90] shadow-sm transition hover:text-[#1E5BFF]"
+                          className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#64748B] shadow-sm transition hover:text-[#2563EB]"
                         >
                           Profile
                         </button>
                       </div>
                       <div className="mt-6 grid grid-cols-2 gap-3">
                         <div className="rounded-[22px] bg-white/90 p-4 shadow-sm">
-                          <p className="text-xs font-semibold text-[#6B7A90]">
+                          <p className="text-xs font-semibold text-[#64748B]">
                             Start Time
                           </p>
-                          <p className="mt-1 text-sm font-black text-[#102033]">
+                          <p className="mt-1 text-sm font-black text-[#0F172A]">
                             {formatClockTime(selectedSession.starts_at)}
                           </p>
                         </div>
                         <div className="rounded-[22px] bg-white/90 p-4 shadow-sm">
-                          <p className="text-xs font-semibold text-[#6B7A90]">
+                          <p className="text-xs font-semibold text-[#64748B]">
                             End Time
                           </p>
-                          <p className="mt-1 text-sm font-black text-[#102033]">
+                          <p className="mt-1 text-sm font-black text-[#0F172A]">
                             {formatClockTime(selectedSession.ends_at)}
                           </p>
                         </div>
                         <div className="rounded-[22px] bg-white/90 p-4 shadow-sm">
-                          <p className="text-xs font-semibold text-[#6B7A90]">
+                          <p className="text-xs font-semibold text-[#64748B]">
                             Actual Start
                           </p>
-                          <p className="mt-1 text-sm font-black text-[#102033]">
+                          <p className="mt-1 text-sm font-black text-[#0F172A]">
                             {formatClockTime(selectedSession.check_in_at)}
                           </p>
                         </div>
                         <div className="rounded-[22px] bg-white/90 p-4 shadow-sm">
-                          <p className="text-xs font-semibold text-[#6B7A90]">
+                          <p className="text-xs font-semibold text-[#64748B]">
                             Actual End
                           </p>
-                          <p className="mt-1 text-sm font-black text-[#102033]">
+                          <p className="mt-1 text-sm font-black text-[#0F172A]">
                             {formatClockTime(selectedSession.check_out_at)}
                           </p>
                         </div>
                       </div>
                       {selectedSession.instructions && (
                         <div className="mt-5 rounded-[24px] bg-white/90 p-5 shadow-sm">
-                          <p className="text-sm font-black text-[#102033]">
+                          <p className="text-sm font-black text-[#0F172A]">
                             Instructions
                           </p>
-                          <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
+                          <p className="mt-2 text-sm leading-6 text-[#64748B]">
                             {selectedSession.instructions}
                           </p>
                         </div>
@@ -1362,22 +1364,22 @@ export default function CareSessionsPage() {
             {selectedSession && (
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-black text-[#102033]">
+                  <h2 className="text-2xl font-black text-[#0F172A]">
                     Session Timer
                   </h2>
                   {selectedSession.status === "active" && (
-                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#22A06B]">
-                      <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#22C55E]">
+                      <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
                       LIVE
                     </span>
                   )}
                 </div>
 
                 <div className="mt-8 text-center">
-                  <div className="text-6xl font-black tracking-tight text-[#102033] md:text-7xl">
+                  <div className="text-6xl font-black tracking-tight text-[#0F172A] md:text-7xl">
                     {formatDuration(selectedDuration)}
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-[#6B7A90]">
+                  <p className="mt-3 text-sm font-semibold text-[#64748B]">
                     elapsed time
                   </p>
                   <div className="mt-6 text-2xl font-black tracking-wide text-slate-400 md:text-3xl">
@@ -1393,7 +1395,7 @@ export default function CareSessionsPage() {
                     onClick={() =>
                       updateSessionStatus(selectedSession, "completed")
                     }
-                    className="mt-8 w-full rounded-[22px] bg-[#E5484D] p-5 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-600"
+                    className="mt-8 w-full rounded-[22px] bg-[#EF4444] p-5 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-600"
                   >
                     ■ End Session
                   </button>
@@ -1406,21 +1408,21 @@ export default function CareSessionsPage() {
                       selectedSession.status === "completed" ||
                       selectedSession.status === "cancelled"
                     }
-                    className={`mt-8 w-full rounded-[22px] p-5 text-sm font-black text-white shadow-lg transition ${selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed bg-slate-300 shadow-none" : "bg-[#35B779] shadow-emerald-100 hover:bg-[#22A06B]"}`}
+                    className={`mt-8 w-full rounded-[22px] p-5 text-sm font-black text-white shadow-lg transition ${selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed bg-slate-300 shadow-none" : "bg-[#22C55E] shadow-emerald-100 hover:bg-[#22C55E]"}`}
                   >
                     ▶ Start Session
                   </button>
                 )}
 
                 <div className="mt-6 rounded-[24px] bg-blue-50 p-5">
-                  <p className="text-sm font-bold text-[#102033]">
+                  <p className="text-sm font-bold text-[#0F172A]">
                     {selectedSession.status === "active"
                       ? `This session started at ${formatClockTime(selectedSession.check_in_at)}.`
                       : selectedSession.status === "completed"
                         ? `This session ended at ${formatClockTime(selectedSession.check_out_at)}.`
                         : "Start the session when the caregiver begins care."}
                   </p>
-                  <p className="mt-1 text-sm text-[#6B7A90]">
+                  <p className="mt-1 text-sm text-[#64748B]">
                     {selectedSession.status === "active"
                       ? "Use quick actions below to add care updates while the session is live."
                       : selectedSession.status === "completed"
@@ -1429,17 +1431,17 @@ export default function CareSessionsPage() {
                   </p>
                 </div>
 
-                <div className="mt-6 rounded-[28px] border border-blue-100 bg-[#FBFDFF] p-5">
+                <div className="mt-6 rounded-[28px] border border-blue-100 bg-[#FFFFFF] p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-[#6B7A90]">
+                      <p className="text-sm font-semibold text-[#64748B]">
                         Session Actions
                       </p>
-                      <h3 className="mt-1 text-xl font-black text-[#102033]">
+                      <h3 className="mt-1 text-xl font-black text-[#0F172A]">
                         Add updates during care
                       </h3>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#6B7A90]">
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#64748B]">
                       {selectedLogs.length} logs
                     </span>
                   </div>
@@ -1455,10 +1457,10 @@ export default function CareSessionsPage() {
                         className={`rounded-[22px] border p-4 text-left transition ${selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : activeActionType === event.type ? "border-blue-200 bg-blue-50 shadow-sm" : "border-blue-100 bg-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/40"}`}
                       >
                         <div className="text-2xl">{event.icon}</div>
-                        <p className="mt-3 text-sm font-black text-[#102033]">
+                        <p className="mt-3 text-sm font-black text-[#0F172A]">
                           {event.title}
                         </p>
-                        <p className="mt-1 text-xs text-[#6B7A90]">
+                        <p className="mt-1 text-xs text-[#64748B]">
                           {event.mode === "instant" ? "Add now" : "Add details"}
                         </p>
                       </button>
@@ -1467,10 +1469,10 @@ export default function CareSessionsPage() {
                       className={`rounded-[22px] border p-4 text-left transition ${uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60" : "cursor-pointer border-blue-100 bg-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/40"}`}
                     >
                       <div className="text-2xl">📷</div>
-                      <p className="mt-3 text-sm font-black text-[#102033]">
+                      <p className="mt-3 text-sm font-black text-[#0F172A]">
                         Photo
                       </p>
-                      <p className="mt-1 text-xs text-[#6B7A90]">
+                      <p className="mt-1 text-xs text-[#64748B]">
                         Upload report
                       </p>
                       <input
@@ -1506,20 +1508,20 @@ export default function CareSessionsPage() {
                                 setActionValue(inputEvent.target.value)
                               }
                               placeholder={event.prompt}
-                              className="rounded-2xl border border-blue-100 bg-[#FBFDFF] p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                              className="rounded-2xl border border-blue-100 bg-[#FFFFFF] p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                             />
                             <button
                               onClick={() =>
                                 saveSessionAction(event, actionValue)
                               }
-                              className="rounded-2xl bg-[#1E5BFF] px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+                              className="rounded-2xl bg-[#2563EB] px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
                             >
                               Save
                             </button>
                           </div>
                         ) : (
                           <div>
-                            <p className="text-sm font-bold text-[#102033]">
+                            <p className="text-sm font-bold text-[#0F172A]">
                               Select mood
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -1529,7 +1531,7 @@ export default function CareSessionsPage() {
                                   onClick={() =>
                                     saveSessionAction(event, option)
                                   }
-                                  className="rounded-full border border-blue-100 bg-[#FBFDFF] px-4 py-2 text-xs font-bold text-[#102033] transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#1E5BFF]"
+                                  className="rounded-full border border-blue-100 bg-[#FFFFFF] px-4 py-2 text-xs font-bold text-[#0F172A] transition hover:border-blue-200 hover:bg-blue-50 hover:text-[#2563EB]"
                                 >
                                   {option}
                                 </button>
@@ -1545,49 +1547,49 @@ export default function CareSessionsPage() {
                 <div className="mt-6 grid gap-3 md:grid-cols-4">
                   <button
                     onClick={() => router.push("/messages")}
-                    className="rounded-[22px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:bg-white"
+                    className="rounded-[22px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:bg-white"
                   >
                     <div className="text-2xl">💬</div>
-                    <p className="mt-3 text-sm font-black text-[#102033]">
+                    <p className="mt-3 text-sm font-black text-[#0F172A]">
                       Message
                     </p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">
+                    <p className="mt-1 text-xs text-[#64748B]">
                       Chat with caregiver
                     </p>
                   </button>
                   <button
                     onClick={() => router.push("/care-log")}
-                    className="rounded-[22px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:bg-white"
+                    className="rounded-[22px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:bg-white"
                   >
                     <div className="text-2xl">📝</div>
-                    <p className="mt-3 text-sm font-black text-[#102033]">
+                    <p className="mt-3 text-sm font-black text-[#0F172A]">
                       Care Log
                     </p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">
+                    <p className="mt-1 text-xs text-[#64748B]">
                       Detailed updates
                     </p>
                   </button>
                   <button
                     onClick={() => router.push("/photos")}
-                    className="rounded-[22px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:bg-white"
+                    className="rounded-[22px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:bg-white"
                   >
                     <div className="text-2xl">📷</div>
-                    <p className="mt-3 text-sm font-black text-[#102033]">
+                    <p className="mt-3 text-sm font-black text-[#0F172A]">
                       Photos
                     </p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">
+                    <p className="mt-1 text-xs text-[#64748B]">
                       {getSessionStats(selectedSession.id).photos} photos
                     </p>
                   </button>
                   <button
                     onClick={generateSessionSummary}
-                    className="rounded-[22px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:bg-white"
+                    className="rounded-[22px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:bg-white"
                   >
                     <div className="text-2xl">🤖</div>
-                    <p className="mt-3 text-sm font-black text-[#102033]">
+                    <p className="mt-3 text-sm font-black text-[#0F172A]">
                       Summary
                     </p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">
+                    <p className="mt-1 text-xs text-[#64748B]">
                       Generate report
                     </p>
                   </button>
@@ -1599,13 +1601,13 @@ export default function CareSessionsPage() {
               <section className="rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-xl shadow-blue-100/45">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-[#6B7A90]">
+                    <p className="text-sm font-semibold text-[#64748B]">
                       AI Session Summary
                     </p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102033]">
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">
                       Care report draft
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
+                    <p className="mt-2 text-sm leading-6 text-[#64748B]">
                       Generates a parent-friendly report from timeline, care
                       logs, moments and messages.
                     </p>
@@ -1613,23 +1615,23 @@ export default function CareSessionsPage() {
                   <button
                     onClick={generateSessionSummary}
                     disabled={generatingSummary}
-                    className={`rounded-full px-5 py-3 text-xs font-bold text-white shadow-sm transition ${generatingSummary ? "cursor-not-allowed bg-slate-300" : "bg-[#1E5BFF] shadow-blue-100 hover:bg-blue-700"}`}
+                    className={`rounded-full px-5 py-3 text-xs font-bold text-white shadow-sm transition ${generatingSummary ? "cursor-not-allowed bg-slate-300" : "bg-[#2563EB] shadow-blue-100 hover:bg-[#1D4ED8]"}`}
                   >
                     {generatingSummary ? "Generating..." : "Generate Summary"}
                   </button>
                 </div>
                 <div className="mt-6 rounded-[28px] bg-white/90 p-5 shadow-sm ring-1 ring-blue-100">
                   {selectedSession.summary ? (
-                    <p className="text-sm leading-7 text-[#102033]">
+                    <p className="text-sm leading-7 text-[#0F172A]">
                       {selectedSession.summary}
                     </p>
                   ) : (
                     <div className="text-center">
                       <div className="text-4xl">🤖</div>
-                      <p className="mt-3 text-sm font-bold text-[#102033]">
+                      <p className="mt-3 text-sm font-bold text-[#0F172A]">
                         No summary yet.
                       </p>
-                      <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
+                      <p className="mt-2 text-sm leading-6 text-[#64748B]">
                         Add care events, moments or messages, then
                         generate the first session summary.
                       </p>
@@ -1638,18 +1640,18 @@ export default function CareSessionsPage() {
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
-                    <p className="text-2xl font-black text-[#1E5BFF]">
+                    <p className="text-2xl font-black text-[#2563EB]">
                       {selectedLogs.length}
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
+                    <p className="mt-1 text-xs font-semibold text-[#64748B]">
                       Care logs
                     </p>
                   </div>
                   <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
-                    <p className="text-2xl font-black text-[#22A06B]">
+                    <p className="text-2xl font-black text-[#22C55E]">
                       {selectedPhotos.length}
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
+                    <p className="mt-1 text-xs font-semibold text-[#64748B]">
                       Moments
                     </p>
                   </div>
@@ -1657,7 +1659,7 @@ export default function CareSessionsPage() {
                     <p className="text-2xl font-black text-violet-700">
                       {selectedMessages.length}
                     </p>
-                    <p className="mt-1 text-xs font-semibold text-[#6B7A90]">
+                    <p className="mt-1 text-xs font-semibold text-[#64748B]">
                       Messages
                     </p>
                   </div>
@@ -1669,19 +1671,19 @@ export default function CareSessionsPage() {
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-[#6B7A90]">
+                    <p className="text-sm font-semibold text-[#64748B]">
                       Moments
                     </p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102033]">
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">
                       Share a Moment
                     </h2>
                   </div>
-                  <span className="rounded-full bg-[#F7FAFC] px-4 py-2 text-xs font-semibold text-[#6B7A90]">
+                  <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                     {selectedPhotos.length} moments
                   </span>
                 </div>
-                <div className="mt-6 rounded-[28px] bg-[#F7FAFC] p-5">
-                  <p className="text-sm font-semibold text-[#6B7A90]">
+                <div className="mt-6 rounded-[28px] bg-[#F8FAFC] p-5">
+                  <p className="text-sm font-semibold text-[#64748B]">
                     Share a photo and a short update with the family.
                   </p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -1689,10 +1691,10 @@ export default function CareSessionsPage() {
                       value={photoCaption}
                       onChange={(event) => setPhotoCaption(event.target.value)}
                       placeholder="What's happening right now?"
-                      className="min-h-24 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF]"
+                      className="min-h-24 rounded-2xl border border-blue-100 bg-white p-4 text-sm font-medium outline-none transition focus:border-[#2563EB]"
                     />
                     <label
-                      className={`cursor-pointer rounded-2xl px-5 py-4 text-center text-sm font-black text-white shadow-lg transition ${uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed bg-slate-300 shadow-none" : "bg-[#1E5BFF] shadow-blue-200 hover:bg-blue-700"}`}
+                      className={`cursor-pointer rounded-2xl px-5 py-4 text-center text-sm font-black text-white shadow-lg transition ${uploadingPhoto || selectedSession.status === "completed" || selectedSession.status === "cancelled" ? "cursor-not-allowed bg-slate-300 shadow-none" : "bg-[#2563EB] shadow-blue-200 hover:bg-[#1D4ED8]"}`}
                     >
                       {uploadingPhoto ? "Uploading..." : "Add Photo Update"}
                       <input
@@ -1713,10 +1715,10 @@ export default function CareSessionsPage() {
                 {selectedPhotos.length === 0 ? (
                   <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
                     <div className="text-5xl">📷</div>
-                    <p className="mt-4 font-semibold text-[#102033]">
+                    <p className="mt-4 font-semibold text-[#0F172A]">
                       No moments shared yet
                     </p>
-                    <p className="mt-2 text-sm text-[#6B7A90]">
+                    <p className="mt-2 text-sm text-[#64748B]">
                       Share photos and updates from the care session.
                     </p>
                   </div>
@@ -1725,7 +1727,7 @@ export default function CareSessionsPage() {
                     {selectedPhotos.slice(0, 6).map((photo) => (
                       <article
                         key={photo.id}
-                        className="overflow-hidden rounded-[26px] border border-blue-100 bg-[#FBFDFF] shadow-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
+                        className="overflow-hidden rounded-[26px] border border-blue-100 bg-[#FFFFFF] shadow-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
                       >
                         <a
                           href={photo.url || "#"}
@@ -1740,14 +1742,14 @@ export default function CareSessionsPage() {
                         </a>
                         <div className="p-4">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="truncate text-sm font-black text-[#102033]">
+                            <p className="truncate text-sm font-black text-[#0F172A]">
                               {photo.caption || "Moment update"}
                             </p>
-                            <p className="shrink-0 text-xs font-semibold text-[#6B7A90]">
+                            <p className="shrink-0 text-xs font-semibold text-[#64748B]">
                               {formatClockTime(photo.created_at)}
                             </p>
                           </div>
-                          <p className="mt-1 text-xs text-[#6B7A90]">
+                          <p className="mt-1 text-xs text-[#64748B]">
                             Moment
                           </p>
                         </div>
@@ -1762,20 +1764,20 @@ export default function CareSessionsPage() {
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-[#6B7A90]">
+                    <p className="text-sm font-semibold text-[#64748B]">
                       Today&apos;s Care Story
                     </p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102033]">
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">
                       Today&apos;s care story
                     </h2>
-                    <p className="mt-2 text-sm leading-6 text-[#6B7A90]">
+                    <p className="mt-2 text-sm leading-6 text-[#64748B]">
                       A warm, simple recap of each moment shared during this
                       session.
                     </p>
                   </div>
                   <button
                     onClick={() => router.push("/ai-summary")}
-                    className="rounded-full bg-[#1E5BFF] px-5 py-2 text-xs font-bold text-white shadow-sm shadow-blue-100"
+                    className="rounded-full bg-[#2563EB] px-5 py-2 text-xs font-bold text-white shadow-sm shadow-blue-100"
                   >
                     AI Summary
                   </button>
@@ -1783,7 +1785,7 @@ export default function CareSessionsPage() {
                 {sessionTimeline.length === 0 ? (
                   <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                     <div className="text-5xl">🫶</div>
-                    <p className="mt-4 font-semibold text-[#102033]">
+                    <p className="mt-4 font-semibold text-[#0F172A]">
                       Your care story will appear here as updates are added
                       during the session.
                     </p>
@@ -1819,14 +1821,14 @@ export default function CareSessionsPage() {
                                 {formatClockTime(item.time)}
                               </time>
                               <div>
-                                <p className="text-base font-black text-[#102033]">
+                                <p className="text-base font-black text-[#0F172A]">
                                   {item.title}
                                 </p>
-                                <p className="mt-2 text-sm font-semibold leading-6 text-[#102033]">
+                                <p className="mt-2 text-sm font-semibold leading-6 text-[#0F172A]">
                                   {item.note}
                                 </p>
                                 {item.detail && (
-                                  <p className="mt-1 text-sm font-black text-[#6B7A90]">
+                                  <p className="mt-1 text-sm font-black text-[#64748B]">
                                     {item.detail}
                                   </p>
                                 )}
@@ -1864,7 +1866,7 @@ export default function CareSessionsPage() {
             <button
               key={item.label}
               onClick={() => router.push(item.href)}
-              className="rounded-2xl px-2 py-2 text-center text-[11px] font-semibold text-[#6B7A90]"
+              className="rounded-2xl px-2 py-2 text-center text-[11px] font-semibold text-[#64748B]"
             >
               <div className="text-lg leading-5">{item.icon}</div>
               <div className="mt-1">{item.label}</div>

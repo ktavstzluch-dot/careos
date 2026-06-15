@@ -230,7 +230,7 @@ export default function ChildProfilePage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <button
             onClick={() => router.push("/dashboard")}
-            className="rounded-2xl bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-blue-700"
+            className="rounded-2xl bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-[#2563EB]"
           >
             ← Dashboard
           </button>
@@ -260,7 +260,7 @@ export default function ChildProfilePage() {
                 )}
 
                 <div>
-                  <div className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-medium text-blue-700 shadow-sm shadow-blue-100/50 ring-1 ring-blue-100">
+                  <div className="inline-flex rounded-full bg-white/80 px-4 py-2 text-xs font-medium text-[#2563EB] shadow-sm shadow-blue-100/50 ring-1 ring-blue-100">
                     Child profile
                   </div>
 
@@ -273,7 +273,7 @@ export default function ChildProfilePage() {
                     {child.birth_date ? ` · Born ${child.birth_date}` : ""}
                   </p>
 
-                  <label className="mt-7 inline-flex items-center rounded-2xl bg-blue-600 px-5 py-3 text-sm font-medium text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700">
+                  <label className="mt-7 inline-flex items-center rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-medium text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]">
                     {uploadingPhoto ? "Uploading..." : "Upload Photo"}
                     <input
                       type="file"
@@ -307,7 +307,7 @@ export default function ChildProfilePage() {
 
             <button
               onClick={() => router.push(`/assistant?childId=${childId}`)}
-              className="rounded-[32px] bg-gradient-to-br from-blue-600 to-teal-500 p-6 text-left text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1"
+              className="rounded-[32px] bg-gradient-to-br from-[#2563EB] to-[#22C55E] p-6 text-left text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1"
             >
               <p className="text-sm font-medium text-white/75">AI Assistant</p>
               <p className="mt-2 text-3xl font-medium">Ask CareOS</p>
@@ -362,7 +362,7 @@ export default function ChildProfilePage() {
 
             <button
               onClick={handleAddLog}
-              className="mt-4 w-full rounded-2xl bg-blue-600 p-4 text-sm font-medium text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+              className="mt-4 w-full rounded-2xl bg-[#2563EB] p-4 text-sm font-medium text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
             >
               Add Entry
             </button>

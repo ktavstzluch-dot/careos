@@ -40,11 +40,11 @@ const categories: Array<{ type: DependentType; label: string; icon: string }> = 
 ];
 
 const navItems = [
-  { label: "Home", icon: "⌂", href: "/dashboard" },
-  { label: "Schedule", icon: "▣", href: "/schedule" },
-  { label: "Care Log", icon: "□", href: "/care-log" },
-  { label: "AI Summary", icon: "✦", href: "/ai-summary" },
-  { label: "Profile", icon: "♙", href: "/profile" },
+  { label: "Home", icon: "\u2302", href: "/dashboard" },
+  { label: "Schedule", icon: "\u25A3", href: "/schedule" },
+  { label: "Care Log", icon: "\u25A1", href: "/care-log" },
+  { label: "Photos", icon: "\u25CD", href: "/photos" },
+  { label: "Profile", icon: "\u2659", href: "/profile" },
 ];
 
 const typeConfig: Record<DependentType, { label: string; icon: string; care: string; chip: string; avatar: string }> = {
@@ -52,15 +52,15 @@ const typeConfig: Record<DependentType, { label: string; icon: string; care: str
     label: "Child",
     icon: "👶",
     care: "Nanny visit at 3:00 PM",
-    chip: "bg-blue-50 text-[#1E5BFF]",
-    avatar: "bg-blue-50 text-[#1E5BFF]",
+    chip: "bg-blue-50 text-[#2563EB]",
+    avatar: "bg-blue-50 text-[#2563EB]",
   },
   pet: {
     label: "Pet",
     icon: "🐾",
     care: "Dog walk at 6:30 PM",
-    chip: "bg-emerald-50 text-[#22A06B]",
-    avatar: "bg-emerald-50 text-[#22A06B]",
+    chip: "bg-emerald-50 text-[#22C55E]",
+    avatar: "bg-emerald-50 text-[#22C55E]",
   },
   elder: {
     label: "Elder",
@@ -74,13 +74,17 @@ const typeConfig: Record<DependentType, { label: string; icon: string; care: str
 function CareOSLogo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-12 w-12 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-[34px] font-black leading-none text-white shadow-lg shadow-blue-100">
-        ∞
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-[18px] border-[4px] border-[#2563EB] bg-white shadow-lg shadow-blue-100">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#22C55E] text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+            <path d="M12 20.2 5.9 14.7C2.5 11.6 2.3 7.1 5.4 4.8 7.2 3.5 9.8 3.8 12 6c2.2-2.2 4.8-2.5 6.6-1.2 3.1 2.3 2.9 6.8-.5 9.9L12 20.2Z" />
+          </svg>
+        </div>
       </div>
       <div>
-        <div className="text-xl font-black tracking-tight text-[#102033]">CareOS</div>
-        <div className="hidden text-xs font-medium text-[#6B7A90] sm:block">
-          Connected care for your family
+        <div className="text-2xl font-black tracking-tight text-[#0F172A]">CareOS</div>
+        <div className="hidden text-xs font-medium text-[#64748B] sm:block">
+          Trusted care for kids, pets and home
         </div>
       </div>
     </div>
@@ -241,31 +245,31 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F7FAFC]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
-          <p className="text-sm font-medium text-[#6B7A90]">Loading CareOS...</p>
+          <p className="text-sm font-medium text-[#64748B]">Loading CareOS...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F7FAFC] pb-28 text-[#102033]">
+    <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
       <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-left">
             <CareOSLogo />
           </button>
 
-          <div className="hidden items-center gap-2 rounded-full bg-[#F7FAFC] p-1 md:flex">
+          <div className="hidden items-center gap-2 rounded-full bg-[#F8FAFC] p-1 md:flex">
             {navItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => router.push(item.href)}
                 className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                   item.label === "Home"
-                    ? "bg-[#1E5BFF] text-white shadow-sm shadow-blue-200"
-                    : "text-[#6B7A90] hover:bg-white hover:text-[#1E5BFF]"
+                    ? "bg-[#2563EB] text-white shadow-sm shadow-blue-200"
+                    : "text-[#64748B] hover:bg-white hover:text-[#2563EB]"
                 }`}
               >
                 {item.label}
@@ -278,28 +282,28 @@ export default function DashboardPage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
                 {initials}
               </div>
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#102033]">{displayName}</p>
-                <p className="max-w-[190px] truncate text-xs text-[#6B7A90]">{email}</p>
+                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
+                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
               </div>
-              <span className="text-xs text-[#6B7A90]">⌄</span>
+              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
 
             {accountMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 rounded-[24px] bg-white p-2 shadow-2xl shadow-blue-100/70 ring-1 ring-blue-100">
                 <button
                   onClick={() => router.push("/profile")}
-                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#6B7A90] transition hover:bg-blue-50 hover:text-[#1E5BFF]"
+                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#64748B] transition hover:bg-blue-50 hover:text-[#2563EB]"
                 >
                   Profile
                   <span>→</span>
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#E5484D] transition hover:bg-red-50"
+                  className="mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
                 >
                   Sign Out
                   <span>↗</span>
@@ -314,41 +318,41 @@ export default function DashboardPage() {
         {!family ? (
           <div className="mx-auto max-w-xl rounded-[36px] border border-blue-100 bg-white p-8 shadow-xl shadow-blue-100/50">
             <CareOSLogo />
-            <div className="mt-7 inline-flex rounded-full bg-blue-50 px-4 py-2 text-xs font-semibold text-[#1E5BFF]">
+            <div className="mt-7 inline-flex rounded-full bg-blue-50 px-4 py-2 text-xs font-semibold text-[#2563EB]">
               Welcome to CareOS
             </div>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-[#102033]">
+            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-[#0F172A]">
               Create your trusted care workspace
             </h1>
-            <p className="mt-3 text-base leading-7 text-[#6B7A90]">
+            <p className="mt-3 text-base leading-7 text-[#64748B]">
               One private operating system for kids, pets and elder care.
             </p>
             <input
               type="text"
               placeholder="Example: Kazaryan Family"
-              className="mt-6 w-full rounded-2xl border border-blue-100 bg-[#F7FAFC] p-4 text-sm font-medium outline-none transition focus:border-[#1E5BFF] focus:bg-white"
+              className="mt-6 w-full rounded-2xl border border-blue-100 bg-[#F8FAFC] p-4 text-sm font-medium outline-none transition focus:border-[#2563EB] focus:bg-white"
               value={familyName}
               onChange={(event) => setFamilyName(event.target.value)}
             />
             <button
               onClick={handleCreateFamily}
-              className="mt-4 w-full rounded-2xl bg-[#1E5BFF] p-4 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700"
+              className="mt-4 w-full rounded-2xl bg-[#2563EB] p-4 text-sm font-semibold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
             >
               Create CareOS Workspace
             </button>
-            {message && <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-medium text-[#1E5BFF]">{message}</p>}
+            {message && <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-medium text-[#2563EB]">{message}</p>}
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="space-y-6">
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-4 py-2 text-xs font-semibold text-[#22A06B] shadow-sm">
-                  <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-4 py-2 text-xs font-semibold text-[#22C55E] shadow-sm">
+                  <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
                   Today&apos;s care status
                 </div>
-                <p className="mt-6 text-base font-semibold text-[#6B7A90]">{greeting},</p>
-                <h1 className="mt-1 text-5xl font-black tracking-tight text-[#102033]">{displayName} 👋</h1>
-                <p className="mt-4 max-w-xl text-base leading-7 text-[#6B7A90]">
+                <p className="mt-6 text-base font-semibold text-[#64748B]">{greeting},</p>
+                <h1 className="mt-1 text-5xl font-black tracking-tight text-[#0F172A]">{displayName} 👋</h1>
+                <p className="mt-4 max-w-xl text-base leading-7 text-[#64748B]">
                   Everything is under control across kids, pets and elders.
                 </p>
 
@@ -357,8 +361,8 @@ export default function DashboardPage() {
                     onClick={() => setActiveFilter("all")}
                     className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
                       activeFilter === "all"
-                        ? "bg-[#1E5BFF] text-white shadow-lg shadow-blue-200"
-                        : "bg-[#F7FAFC] text-[#6B7A90] hover:bg-white"
+                        ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
+                        : "bg-[#F8FAFC] text-[#64748B] hover:bg-white"
                     }`}
                   >
                     All
@@ -369,8 +373,8 @@ export default function DashboardPage() {
                       onClick={() => setActiveFilter(item.type)}
                       className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
                         activeFilter === item.type
-                          ? "bg-[#1E5BFF] text-white shadow-lg shadow-blue-200"
-                          : "bg-[#F7FAFC] text-[#6B7A90] hover:bg-white"
+                          ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
+                          : "bg-[#F8FAFC] text-[#64748B] hover:bg-white"
                       }`}
                     >
                       {item.label}
@@ -383,44 +387,44 @@ export default function DashboardPage() {
                     <button
                       key={item.type}
                       onClick={() => setActiveFilter(item.type)}
-                      className="rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-4 text-left transition hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
+                      className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
                     >
                       <div className="text-2xl">{item.icon}</div>
-                      <p className="mt-3 text-3xl font-black text-[#102033]">{counts[item.type]}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#6B7A90]">{item.label}</p>
+                      <p className="mt-3 text-3xl font-black text-[#0F172A]">{counts[item.type]}</p>
+                      <p className="mt-1 text-xs font-semibold text-[#64748B]">{item.label}</p>
                     </button>
                   ))}
                 </div>
               </section>
 
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-                <p className="text-sm font-semibold text-[#6B7A90]">Quick Actions</p>
-                <h2 className="mt-1 text-2xl font-black text-[#102033]">What do you need?</h2>
+                <p className="text-sm font-semibold text-[#64748B]">Quick Actions</p>
+                <h2 className="mt-1 text-2xl font-black text-[#0F172A]">What do you need?</h2>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#1E5BFF] p-5 text-left text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1">
+                  <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#2563EB] p-5 text-left text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1">
                     <div className="text-3xl">📅</div>
                     <p className="mt-4 text-sm font-bold">Book care</p>
                     <p className="mt-1 text-xs text-white/80">Schedule a visit</p>
                   </button>
-                  <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#35B779] p-5 text-left text-white shadow-lg shadow-emerald-100 transition hover:-translate-y-1">
+                  <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#22C55E] p-5 text-left text-white shadow-lg shadow-emerald-100 transition hover:-translate-y-1">
                     <div className="text-3xl">📝</div>
                     <p className="mt-4 text-sm font-bold">Care Log</p>
                     <p className="mt-1 text-xs text-white/80">Add update</p>
                   </button>
                   <button onClick={() => router.push("/ai-summary")} className="rounded-[24px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5 text-left transition hover:bg-white">
                     <div className="text-3xl">🤖</div>
-                    <p className="mt-4 text-sm font-bold text-[#102033]">AI Summary</p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">View daily reports</p>
+                    <p className="mt-4 text-sm font-bold text-[#0F172A]">AI Summary</p>
+                    <p className="mt-1 text-xs text-[#64748B]">View daily reports</p>
                   </button>
-                  <button onClick={() => router.push("/photos")} className="rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-5 text-left transition hover:bg-white">
+                  <button onClick={() => router.push("/photos")} className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-5 text-left transition hover:bg-white">
                     <div className="text-3xl">📷</div>
-                    <p className="mt-4 text-sm font-bold text-[#102033]">Photo reports</p>
-                    <p className="mt-1 text-xs text-[#6B7A90]">Upload photos</p>
+                    <p className="mt-4 text-sm font-bold text-[#0F172A]">Photo reports</p>
+                    <p className="mt-1 text-xs text-[#64748B]">Upload photos</p>
                   </button>
                 </div>
 
-                {message && <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22A06B]">{message}</p>}
+                {message && <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22C55E]">{message}</p>}
               </section>
             </div>
 
@@ -428,17 +432,17 @@ export default function DashboardPage() {
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#6B7A90]">Today&apos;s Care</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102033]">Live overview</h2>
+                    <p className="text-sm font-semibold text-[#64748B]">Today&apos;s Care</p>
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Live overview</h2>
                   </div>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22A06B]">All good</span>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">All good</span>
                 </div>
 
                 {filteredDependents.length === 0 ? (
                   <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
                     <div className="text-5xl">💙</div>
-                    <p className="mt-4 font-semibold text-[#102033]">Add your first dependent</p>
-                    <p className="mt-2 text-sm text-[#6B7A90]">Kids, pets or elders.</p>
+                    <p className="mt-4 font-semibold text-[#0F172A]">Add your first dependent</p>
+                    <p className="mt-2 text-sm text-[#64748B]">Kids, pets or elders.</p>
                   </div>
                 ) : (
                   <div className="mt-6 space-y-3">
@@ -449,7 +453,7 @@ export default function DashboardPage() {
                         <button
                           key={dependent.id}
                           onClick={() => openDependent(dependent)}
-                          className="flex w-full items-center gap-4 rounded-[26px] border border-slate-100 bg-[#FBFDFF] p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-100 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
+                          className="flex w-full items-center gap-4 rounded-[26px] border border-slate-100 bg-[#FFFFFF] p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-100 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
                         >
                           {dependent.photo_url ? (
                             <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 rounded-[22px] object-cover" />
@@ -460,14 +464,14 @@ export default function DashboardPage() {
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <h3 className="truncate text-base font-black text-[#102033]">{dependent.name}</h3>
+                              <h3 className="truncate text-base font-black text-[#0F172A]">{dependent.name}</h3>
                               <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.chip}`}>
                                 {config.label}
                               </span>
                             </div>
-                            <p className="mt-1 text-sm font-medium text-[#6B7A90]">{config.care}</p>
+                            <p className="mt-1 text-sm font-medium text-[#64748B]">{config.care}</p>
                           </div>
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-[#1E5BFF]">→</span>
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-[#2563EB]">→</span>
                         </button>
                       );
                     })}
@@ -479,16 +483,16 @@ export default function DashboardPage() {
                 <div className="flex items-start gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🤖</div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#6B7A90]">AI Summary</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102033]">Daily report ready</h2>
-                    <p className="mt-3 text-sm leading-6 text-[#6B7A90]">
+                    <p className="text-sm font-semibold text-[#64748B]">AI Summary</p>
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Daily report ready</h2>
+                    <p className="mt-3 text-sm leading-6 text-[#64748B]">
                       {summaryReadyDependent
                         ? `${summaryReadyDependent.name}'s care logs and photos are ready for review.`
                         : "Add care logs and photos to generate daily reports."}
                     </p>
                     <button
                       onClick={() => router.push("/ai-summary")}
-                      className="mt-5 rounded-full bg-[#1E5BFF] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
+                      className="mt-5 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
                     >
                       View AI Summary
                     </button>
@@ -499,10 +503,10 @@ export default function DashboardPage() {
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#6B7A90]">Latest Updates</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#102033]">Care activity</h2>
+                    <p className="text-sm font-semibold text-[#64748B]">Latest Updates</p>
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Care activity</h2>
                   </div>
-                  <span className="rounded-full bg-[#F7FAFC] px-4 py-2 text-xs font-semibold text-[#6B7A90]">
+                  <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                     {family.name}
                   </span>
                 </div>
@@ -510,24 +514,24 @@ export default function DashboardPage() {
                 {!latestLog ? (
                   <div className="mt-6 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center">
                     <div className="text-3xl">📝</div>
-                    <p className="mt-2 text-sm font-semibold text-[#102033]">No care logs yet.</p>
-                    <button onClick={() => router.push("/care-log")} className="mt-4 rounded-full bg-[#1E5BFF] px-5 py-2 text-xs font-bold text-white">
+                    <p className="mt-2 text-sm font-semibold text-[#0F172A]">No care logs yet.</p>
+                    <button onClick={() => router.push("/care-log")} className="mt-4 rounded-full bg-[#2563EB] px-5 py-2 text-xs font-bold text-white">
                       Add care log
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => router.push("/care-log")} className="mt-6 block w-full rounded-[26px] border border-slate-100 bg-[#FBFDFF] p-5 text-left transition hover:bg-white hover:shadow-lg hover:shadow-blue-100/50">
+                  <button onClick={() => router.push("/care-log")} className="mt-6 block w-full rounded-[26px] border border-slate-100 bg-[#FFFFFF] p-5 text-left transition hover:bg-white hover:shadow-lg hover:shadow-blue-100/50">
                     <div className="flex items-start gap-3">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-xl">📝</div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-bold text-[#102033]">{latestLog.title || latestLog.type}</p>
-                          <p className="text-xs font-semibold text-[#6B7A90]">{formatTime(latestLog.created_at)}</p>
+                          <p className="text-sm font-bold text-[#0F172A]">{latestLog.title || latestLog.type}</p>
+                          <p className="text-xs font-semibold text-[#64748B]">{formatTime(latestLog.created_at)}</p>
                         </div>
-                        <p className="mt-1 text-xs font-semibold text-[#1E5BFF]">
+                        <p className="mt-1 text-xs font-semibold text-[#2563EB]">
                           {dependents.find((item) => item.id === latestLog.dependent_id)?.name || "CareOS"}
                         </p>
-                        {latestLog.note && <p className="mt-2 text-sm leading-6 text-[#6B7A90]">{latestLog.note}</p>}
+                        {latestLog.note && <p className="mt-2 text-sm leading-6 text-[#64748B]">{latestLog.note}</p>}
                       </div>
                     </div>
                   </button>
@@ -545,7 +549,7 @@ export default function DashboardPage() {
               key={item.label}
               onClick={() => router.push(item.href)}
               className={`rounded-2xl px-2 py-2 text-center text-[11px] font-semibold ${
-                item.label === "Home" ? "bg-blue-50 text-[#1E5BFF]" : "text-[#6B7A90]"
+                item.label === "Home" ? "bg-blue-50 text-[#2563EB]" : "text-[#64748B]"
               }`}
             >
               <div className="text-lg leading-5">{item.icon}</div>

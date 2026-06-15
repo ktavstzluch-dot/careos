@@ -33,11 +33,11 @@ type Photo = {
 };
 
 const navItems = [
-  { label: "Home", icon: "⌂", href: "/dashboard" },
-  { label: "Schedule", icon: "▣", href: "/schedule" },
-  { label: "Care Log", icon: "□", href: "/care-log" },
-  { label: "Photos", icon: "◍", href: "/photos" },
-  { label: "Profile", icon: "♙", href: "/profile" },
+  { label: "Home", icon: "\u2302", href: "/dashboard" },
+  { label: "Schedule", icon: "\u25A3", href: "/schedule" },
+  { label: "Care Log", icon: "\u25A1", href: "/care-log" },
+  { label: "Photos", icon: "\u25CD", href: "/photos" },
+  { label: "Profile", icon: "\u2659", href: "/profile" },
 ];
 
 const typeConfig: Record<
@@ -47,14 +47,14 @@ const typeConfig: Record<
   child: {
     label: "Child",
     icon: "👶",
-    avatar: "bg-blue-50 text-[#1E5BFF]",
-    chip: "bg-blue-50 text-[#1E5BFF]",
+    avatar: "bg-blue-50 text-[#2563EB]",
+    chip: "bg-blue-50 text-[#2563EB]",
   },
   pet: {
     label: "Pet",
     icon: "🐾",
-    avatar: "bg-emerald-50 text-[#22A06B]",
-    chip: "bg-emerald-50 text-[#22A06B]",
+    avatar: "bg-emerald-50 text-[#22C55E]",
+    chip: "bg-emerald-50 text-[#22C55E]",
   },
   elder: {
     label: "Elder",
@@ -67,13 +67,17 @@ const typeConfig: Record<
 function CareOSLogo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-12 w-12 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-[34px] font-black leading-none text-white shadow-lg shadow-blue-100">
-        ∞
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-[18px] border-[4px] border-[#2563EB] bg-white shadow-lg shadow-blue-100">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#22C55E] text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+            <path d="M12 20.2 5.9 14.7C2.5 11.6 2.3 7.1 5.4 4.8 7.2 3.5 9.8 3.8 12 6c2.2-2.2 4.8-2.5 6.6-1.2 3.1 2.3 2.9 6.8-.5 9.9L12 20.2Z" />
+          </svg>
+        </div>
       </div>
       <div>
-        <div className="text-xl font-black tracking-tight text-[#102033]">CareOS</div>
-        <div className="hidden text-xs font-medium text-[#6B7A90] sm:block">
-          Connected care for your family
+        <div className="text-2xl font-black tracking-tight text-[#0F172A]">CareOS</div>
+        <div className="hidden text-xs font-medium text-[#64748B] sm:block">
+          Trusted care for kids, pets and home
         </div>
       </div>
     </div>
@@ -203,31 +207,31 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F7FAFC]">
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
-          <p className="text-sm font-medium text-[#6B7A90]">Loading Profile...</p>
+          <p className="text-sm font-medium text-[#64748B]">Loading Profile...</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F7FAFC] pb-28 text-[#102033]">
+    <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
       <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <button onClick={() => router.push("/dashboard")} className="text-left">
             <CareOSLogo />
           </button>
 
-          <div className="hidden items-center gap-2 rounded-full bg-[#F7FAFC] p-1 md:flex">
+          <div className="hidden items-center gap-2 rounded-full bg-[#F8FAFC] p-1 md:flex">
             {navItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => router.push(item.href)}
                 className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                   item.label === "Profile"
-                    ? "bg-[#1E5BFF] text-white shadow-sm shadow-blue-200"
-                    : "text-[#6B7A90] hover:bg-white hover:text-[#1E5BFF]"
+                    ? "bg-[#2563EB] text-white shadow-sm shadow-blue-200"
+                    : "text-[#64748B] hover:bg-white hover:text-[#2563EB]"
                 }`}
               >
                 {item.label}
@@ -240,21 +244,21 @@ export default function ProfilePage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
                 {initials}
               </div>
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#102033]">{displayName}</p>
-                <p className="max-w-[190px] truncate text-xs text-[#6B7A90]">{email}</p>
+                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
+                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
               </div>
-              <span className="text-xs text-[#6B7A90]">⌄</span>
+              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
 
             {accountMenuOpen && (
               <div className="absolute right-0 mt-3 w-64 rounded-[24px] bg-white p-2 shadow-2xl shadow-blue-100/70 ring-1 ring-blue-100">
                 <button
                   onClick={handleLogout}
-                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#E5484D] transition hover:bg-red-50"
+                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
                 >
                   Sign Out
                   <span>↗</span>
@@ -270,52 +274,52 @@ export default function ProfilePage() {
           <div className="space-y-6">
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <div className="flex items-start gap-5">
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[30px] bg-gradient-to-br from-[#1E5BFF] to-[#35B779] text-4xl font-black text-white shadow-lg shadow-blue-100">
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[30px] bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-4xl font-black text-white shadow-lg shadow-blue-100">
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#6B7A90]">Owner account</p>
-                  <h1 className="mt-1 truncate text-4xl font-black tracking-tight text-[#102033]">{displayName}</h1>
-                  <p className="mt-2 truncate text-sm text-[#6B7A90]">{email}</p>
+                  <p className="text-sm font-semibold text-[#64748B]">Owner account</p>
+                  <h1 className="mt-1 truncate text-4xl font-black tracking-tight text-[#0F172A]">{displayName}</h1>
+                  <p className="mt-2 truncate text-sm text-[#64748B]">{email}</p>
                 </div>
               </div>
 
               <div className="mt-7 grid grid-cols-3 gap-3">
                 <div className="rounded-[24px] bg-blue-50 p-4 text-center">
-                  <p className="text-3xl font-black text-[#1E5BFF]">{counts.child}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Kids</p>
+                  <p className="text-3xl font-black text-[#2563EB]">{counts.child}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Kids</p>
                 </div>
                 <div className="rounded-[24px] bg-emerald-50 p-4 text-center">
-                  <p className="text-3xl font-black text-[#22A06B]">{counts.pet}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Pets</p>
+                  <p className="text-3xl font-black text-[#22C55E]">{counts.pet}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Pets</p>
                 </div>
                 <div className="rounded-[24px] bg-violet-50 p-4 text-center">
                   <p className="text-3xl font-black text-violet-700">{counts.elder}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Elders</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Elders</p>
                 </div>
               </div>
             </section>
 
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-              <p className="text-sm font-semibold text-[#6B7A90]">CareOS Health</p>
-              <h2 className="mt-1 text-2xl font-black text-[#102033]">Workspace status</h2>
+              <p className="text-sm font-semibold text-[#64748B]">CareOS Health</p>
+              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Workspace status</h2>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="rounded-[24px] bg-[#F7FAFC] p-4">
-                  <p className="text-3xl font-black text-[#102033]">{dependents.length}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Dependents</p>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-3xl font-black text-[#0F172A]">{dependents.length}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Dependents</p>
                 </div>
-                <div className="rounded-[24px] bg-[#F7FAFC] p-4">
-                  <p className="text-3xl font-black text-[#102033]">{careLogs.length}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Care logs</p>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-3xl font-black text-[#0F172A]">{careLogs.length}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Care logs</p>
                 </div>
-                <div className="rounded-[24px] bg-[#F7FAFC] p-4">
-                  <p className="text-3xl font-black text-[#102033]">{photos.length}</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Photos</p>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-3xl font-black text-[#0F172A]">{photos.length}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Photos</p>
                 </div>
                 <div className="rounded-[24px] bg-emerald-50 p-4">
-                  <p className="text-xl font-black text-[#22A06B]">Healthy</p>
-                  <p className="mt-1 text-xs font-semibold text-[#6B7A90]">Status</p>
+                  <p className="text-xl font-black text-[#22C55E]">Healthy</p>
+                  <p className="mt-1 text-xs font-semibold text-[#64748B]">Status</p>
                 </div>
               </div>
             </section>
@@ -325,10 +329,10 @@ export default function ProfilePage() {
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">My Family</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#102033]">Dependents</h2>
+                  <p className="text-sm font-semibold text-[#64748B]">My Family</p>
+                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Dependents</h2>
                 </div>
-                <span className="rounded-full bg-[#F7FAFC] px-4 py-2 text-xs font-semibold text-[#6B7A90]">
+                <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                   {family?.name || "Family"}
                 </span>
               </div>
@@ -336,8 +340,8 @@ export default function ProfilePage() {
               {dependents.length === 0 ? (
                 <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                   <div className="text-5xl">💙</div>
-                  <p className="mt-4 font-semibold text-[#102033]">No dependents yet.</p>
-                  <p className="mt-2 text-sm text-[#6B7A90]">Add kids, pets or elders to your CareOS workspace.</p>
+                  <p className="mt-4 font-semibold text-[#0F172A]">No dependents yet.</p>
+                  <p className="mt-2 text-sm text-[#64748B]">Add kids, pets or elders to your CareOS workspace.</p>
                 </div>
               ) : (
                 <div className="mt-7 grid gap-4 md:grid-cols-2">
@@ -350,7 +354,7 @@ export default function ProfilePage() {
                       <button
                         key={dependent.id}
                         onClick={() => router.push(`/dependent/${dependent.id}`)}
-                        className="group rounded-[30px] border border-blue-100 bg-[#FBFDFF] p-5 text-left transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-blue-100/50"
+                        className="group rounded-[30px] border border-blue-100 bg-[#FFFFFF] p-5 text-left transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-blue-100/50"
                       >
                         <div className="flex items-center justify-between gap-4">
                           {dependent.photo_url ? (
@@ -365,19 +369,19 @@ export default function ProfilePage() {
                           </span>
                         </div>
 
-                        <h3 className="mt-5 text-xl font-black text-[#102033]">{dependent.name}</h3>
-                        <p className="mt-1 text-sm text-[#6B7A90]">
+                        <h3 className="mt-5 text-xl font-black text-[#0F172A]">{dependent.name}</h3>
+                        <p className="mt-1 text-sm text-[#64748B]">
                           {age === null ? `${config.label} care profile` : `${age} years old`}
                         </p>
 
                         <div className="mt-5 grid grid-cols-2 gap-3">
                           <div className="rounded-2xl bg-white p-3">
-                            <p className="text-lg font-black text-[#1E5BFF]">{stats.logs}</p>
-                            <p className="text-xs text-[#6B7A90]">Logs</p>
+                            <p className="text-lg font-black text-[#2563EB]">{stats.logs}</p>
+                            <p className="text-xs text-[#64748B]">Logs</p>
                           </div>
                           <div className="rounded-2xl bg-white p-3">
-                            <p className="text-lg font-black text-[#22A06B]">{stats.photos}</p>
-                            <p className="text-xs text-[#6B7A90]">Photos</p>
+                            <p className="text-lg font-black text-[#22C55E]">{stats.photos}</p>
+                            <p className="text-xs text-[#64748B]">Photos</p>
                           </div>
                         </div>
                       </button>
@@ -388,29 +392,29 @@ export default function ProfilePage() {
             </section>
 
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-              <p className="text-sm font-semibold text-[#6B7A90]">Quick Access</p>
-              <h2 className="mt-1 text-2xl font-black text-[#102033]">Family tools</h2>
+              <p className="text-sm font-semibold text-[#64748B]">Quick Access</p>
+              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Family tools</h2>
 
               <div className="mt-6 grid gap-3 md:grid-cols-2">
-                <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#1E5BFF] p-5 text-left text-white shadow-lg shadow-blue-200">
+                <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#2563EB] p-5 text-left text-white shadow-lg shadow-blue-200">
                   <div className="text-3xl">📅</div>
                   <p className="mt-4 text-sm font-bold">Schedule</p>
                   <p className="mt-1 text-xs text-white/80">Visits and bookings</p>
                 </button>
-                <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#35B779] p-5 text-left text-white shadow-lg shadow-emerald-100">
+                <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#22C55E] p-5 text-left text-white shadow-lg shadow-emerald-100">
                   <div className="text-3xl">📝</div>
                   <p className="mt-4 text-sm font-bold">Care Logs</p>
                   <p className="mt-1 text-xs text-white/80">Daily updates</p>
                 </button>
-                <button onClick={() => router.push("/photos")} className="rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-5 text-left transition hover:bg-white">
+                <button onClick={() => router.push("/photos")} className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-5 text-left transition hover:bg-white">
                   <div className="text-3xl">📷</div>
-                  <p className="mt-4 text-sm font-bold text-[#102033]">Photos</p>
-                  <p className="mt-1 text-xs text-[#6B7A90]">Photo reports</p>
+                  <p className="mt-4 text-sm font-bold text-[#0F172A]">Photos</p>
+                  <p className="mt-1 text-xs text-[#64748B]">Photo reports</p>
                 </button>
-                <button className="rounded-[24px] border border-blue-100 bg-[#FBFDFF] p-5 text-left transition hover:bg-white">
+                <button className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-5 text-left transition hover:bg-white">
                   <div className="text-3xl">🤖</div>
-                  <p className="mt-4 text-sm font-bold text-[#102033]">AI Summary</p>
-                  <p className="mt-1 text-xs text-[#6B7A90]">Coming next</p>
+                  <p className="mt-4 text-sm font-bold text-[#0F172A]">AI Summary</p>
+                  <p className="mt-1 text-xs text-[#64748B]">Coming next</p>
                 </button>
               </div>
             </section>
@@ -419,9 +423,9 @@ export default function ProfilePage() {
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🔐</div>
                 <div>
-                  <p className="text-sm font-semibold text-[#6B7A90]">Security</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#102033]">Trusted care workspace</h2>
-                  <p className="mt-3 text-sm leading-6 text-[#6B7A90]">
+                  <p className="text-sm font-semibold text-[#64748B]">Security</p>
+                  <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Trusted care workspace</h2>
+                  <p className="mt-3 text-sm leading-6 text-[#64748B]">
                     Emergency contacts, caregiver permissions, documents and payment methods will live here in the next MVP phase.
                   </p>
                 </div>
@@ -438,7 +442,7 @@ export default function ProfilePage() {
               key={item.label}
               onClick={() => router.push(item.href)}
               className={`rounded-2xl px-2 py-2 text-center text-[11px] font-semibold ${
-                item.label === "Profile" ? "bg-blue-50 text-[#1E5BFF]" : "text-[#6B7A90]"
+                item.label === "Profile" ? "bg-blue-50 text-[#2563EB]" : "text-[#64748B]"
               }`}
             >
               <div className="text-lg leading-5">{item.icon}</div>

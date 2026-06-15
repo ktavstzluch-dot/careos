@@ -200,13 +200,13 @@ export default function VaccinationsPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <button
             onClick={() => router.push(`/children/${childId}`)}
-            className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-blue-50 hover:text-blue-700"
+            className="rounded-2xl border border-blue-100 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-blue-50 hover:text-[#2563EB]"
           >
             ← Child Profile
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-emerald-400 text-white shadow-md shadow-blue-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-white shadow-md shadow-blue-100">
               ✦
             </div>
             <div className="text-lg font-semibold text-slate-800">CareOS</div>
