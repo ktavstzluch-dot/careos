@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type DependentType = "child" | "pet" | "elder";
+type SessionStatus = "scheduled" | "active" | "completed" | "cancelled";
 
 type Family = {
   id: string;
@@ -24,20 +25,33 @@ type Dependent = {
   legacy_child_id: string | null;
 };
 
-type CareLog = {
+type CareSession = {
   id: string;
-  dependent_id: string | null;
-  type: string;
+  family_id: string;
+  dependent_id: string;
   title: string | null;
-  note: string | null;
-  created_at: string | null;
+  care_type: string | null;
+  caregiver_name: string | null;
+  status: SessionStatus;
+  starts_at: string | null;
+  ends_at: string | null;
+  check_in_at: string | null;
+  check_out_at: string | null;
+  summary: string | null;
+  created_at: string;
 };
 
-const categories: Array<{ type: DependentType; label: string; icon: string }> = [
-  { type: "child", label: "Kids", icon: "👶" },
-  { type: "pet", label: "Pets", icon: "🐾" },
-  { type: "elder", label: "Elders", icon: "🧓" },
-];
+type Photo = {
+  id: string;
+  family_id: string | null;
+  dependent_id: string | null;
+  care_session_id: string | null;
+  url: string | null;
+  storage_path: string | null;
+  caption: string | null;
+  created_at: string | null;
+  created_by: string | null;
+};
 
 const navItems = [
   { label: "Home", icon: "\u2302", href: "/dashboard" },
@@ -47,28 +61,35 @@ const navItems = [
   { label: "Profile", icon: "\u2659", href: "/profile" },
 ];
 
-const typeConfig: Record<DependentType, { label: string; icon: string; care: string; chip: string; avatar: string }> = {
+const typeConfig: Record<
+  DependentType,
+  { label: string; icon: string; chip: string; avatar: string }
+> = {
   child: {
     label: "Child",
-    icon: "👶",
-    care: "Nanny visit at 3:00 PM",
+    icon: "C",
     chip: "bg-blue-50 text-[#2563EB]",
     avatar: "bg-blue-50 text-[#2563EB]",
   },
   pet: {
     label: "Pet",
-    icon: "🐾",
-    care: "Dog walk at 6:30 PM",
+    icon: "P",
     chip: "bg-emerald-50 text-[#22C55E]",
     avatar: "bg-emerald-50 text-[#22C55E]",
   },
   elder: {
     label: "Elder",
-    icon: "🧓",
-    care: "Medication check at 7:00 PM",
+    icon: "E",
     chip: "bg-violet-50 text-violet-700",
     avatar: "bg-violet-50 text-violet-700",
   },
+};
+
+const statusStyles: Record<SessionStatus, string> = {
+  scheduled: "bg-blue-50 text-[#2563EB]",
+  active: "bg-emerald-50 text-[#22C55E]",
+  completed: "bg-slate-100 text-slate-600",
+  cancelled: "bg-red-50 text-[#EF4444]",
 };
 
 function CareOSLogo() {
@@ -107,8 +128,48 @@ function getDisplayName(email?: string) {
 }
 
 function formatTime(value: string | null) {
-  if (!value) return "Just now";
+  if (!value) return "Time to be set";
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(value));
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "Time to be set";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatSessionTime(session: CareSession) {
+  const start = session.check_in_at || session.starts_at;
+  const end = session.check_out_at || session.ends_at;
+
+  if (!start && !end) return "Time to be set";
+  if (!end) return formatDateTime(start);
+  return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
+function isToday(value: string | null) {
+  if (!value) return false;
+  const date = new Date(value);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
+
+function getSessionTimeValue(session: CareSession) {
+  const value = session.check_in_at || session.starts_at || session.created_at;
+  return value ? new Date(value).getTime() : 0;
+}
+
+function getStoryTimeValue(session: CareSession) {
+  const value = session.check_out_at || session.ends_at || session.starts_at || session.created_at;
+  return value ? new Date(value).getTime() : 0;
 }
 
 export default function DashboardPage() {
@@ -117,9 +178,9 @@ export default function DashboardPage() {
   const [email, setEmail] = useState<string | undefined>("");
   const [family, setFamily] = useState<Family | null>(null);
   const [dependents, setDependents] = useState<Dependent[]>([]);
-  const [careLogs, setCareLogs] = useState<CareLog[]>([]);
+  const [sessions, setSessions] = useState<CareSession[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [familyName, setFamilyName] = useState("");
-  const [activeFilter, setActiveFilter] = useState<"all" | DependentType>("all");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -160,19 +221,23 @@ export default function DashboardPage() {
 
     setDependents(loadedDependents);
 
-    if (loadedDependents.length > 0) {
-      const ids = loadedDependents.map((item) => item.id);
+    const { data: sessionsData } = await supabase
+      .from("care_sessions")
+      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, check_in_at, check_out_at, summary, created_at")
+      .eq("family_id", familyData.id)
+      .order("created_at", { ascending: false })
+      .limit(40);
 
-      const { data: logsData } = await supabase
-        .from("care_logs")
-        .select("id, dependent_id, type, title, note, created_at")
-        .in("dependent_id", ids)
-        .order("created_at", { ascending: false })
-        .limit(8);
+    setSessions((sessionsData || []) as CareSession[]);
 
-      setCareLogs((logsData || []) as CareLog[]);
-    }
+    const { data: photosData } = await supabase
+      .from("photos")
+      .select("id, family_id, dependent_id, care_session_id, url, storage_path, caption, created_at, created_by")
+      .eq("family_id", familyData.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
 
+    setPhotos((photosData || []) as Photo[]);
     setLoading(false);
   }
 
@@ -185,23 +250,67 @@ export default function DashboardPage() {
   const initials = displayName.slice(0, 1).toUpperCase();
   const greeting = useMemo(() => getGreeting(), []);
 
-  const filteredDependents = useMemo(() => {
-    if (activeFilter === "all") return dependents;
-    return dependents.filter((item) => item.type === activeFilter);
-  }, [activeFilter, dependents]);
-
-  const counts = useMemo(() => {
-    return dependents.reduce(
-      (acc, item) => {
-        acc[item.type] += 1;
-        return acc;
-      },
-      { child: 0, pet: 0, elder: 0 } as Record<DependentType, number>
-    );
+  const dependentById = useMemo(() => {
+    return dependents.reduce<Record<string, Dependent>>((acc, dependent) => {
+      acc[dependent.id] = dependent;
+      return acc;
+    }, {});
   }, [dependents]);
 
-  const latestLog = careLogs[0] || null;
-  const summaryReadyDependent = dependents[0] || null;
+  const sessionById = useMemo(() => {
+    return sessions.reduce<Record<string, CareSession>>((acc, session) => {
+      acc[session.id] = session;
+      return acc;
+    }, {});
+  }, [sessions]);
+
+  const activeSessions = useMemo(
+    () => sessions.filter((session) => session.status === "active"),
+    [sessions],
+  );
+
+  const upcomingSessions = useMemo(() => {
+    const now = Date.now();
+    return sessions
+      .filter((session) => session.status === "scheduled" && (!session.starts_at || new Date(session.starts_at).getTime() >= now))
+      .sort((a, b) => getSessionTimeValue(a) - getSessionTimeValue(b));
+  }, [sessions]);
+
+  const todaySessions = useMemo(() => {
+    const careNow = [...activeSessions, ...upcomingSessions]
+      .filter(
+        (session) =>
+          session.status === "active" ||
+          isToday(session.starts_at) ||
+          isToday(session.check_in_at),
+      )
+      .sort((a, b) => getSessionTimeValue(a) - getSessionTimeValue(b));
+
+    return careNow.slice(0, 4);
+  }, [activeSessions, upcomingSessions]);
+
+  const momentsToday = useMemo(
+    () => photos.filter((photo) => isToday(photo.created_at)),
+    [photos],
+  );
+
+  const completedToday = useMemo(
+    () =>
+      sessions.filter(
+        (session) =>
+          session.status === "completed" &&
+          (isToday(session.check_out_at) || isToday(session.ends_at) || isToday(session.starts_at)),
+      ),
+    [sessions],
+  );
+
+  const latestMoments = photos.slice(0, 4);
+
+  const latestStorySession = useMemo(() => {
+    return [...sessions]
+      .filter((session) => session.summary?.trim())
+      .sort((a, b) => getStoryTimeValue(b) - getStoryTimeValue(a))[0] || null;
+  }, [sessions]);
 
   async function handleCreateFamily() {
     setMessage("");
@@ -237,10 +346,6 @@ export default function DashboardPage() {
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/sign-in");
-  }
-
-  function openDependent(dependent: Dependent) {
-    router.push(`/dependent/${dependent.id}`);
   }
 
   if (loading) {
@@ -289,7 +394,7 @@ export default function DashboardPage() {
                 <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
                 <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
               </div>
-              <span className="text-xs text-[#64748B]">⌄</span>
+              <span className="text-xs text-[#64748B]">v</span>
             </button>
 
             {accountMenuOpen && (
@@ -299,14 +404,14 @@ export default function DashboardPage() {
                   className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#64748B] transition hover:bg-blue-50 hover:text-[#2563EB]"
                 >
                   Profile
-                  <span>→</span>
+                  <span>-&gt;</span>
                 </button>
                 <button
                   onClick={handleLogout}
                   className="mt-2 flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
                 >
                   Sign Out
-                  <span>↗</span>
+                  <span>-&gt;</span>
                 </button>
               </div>
             )}
@@ -325,11 +430,11 @@ export default function DashboardPage() {
               Create your trusted care workspace
             </h1>
             <p className="mt-3 text-base leading-7 text-[#64748B]">
-              One private operating system for kids, pets and elder care.
+              A private place for your family to feel close to every day of care.
             </p>
             <input
               type="text"
-              placeholder="Example: Kazaryan Family"
+              placeholder="Example: Hakobyan Family"
               className="mt-6 w-full rounded-2xl border border-blue-100 bg-[#F8FAFC] p-4 text-sm font-medium outline-none transition focus:border-[#2563EB] focus:bg-white"
               value={familyName}
               onChange={(event) => setFamilyName(event.target.value)}
@@ -343,136 +448,179 @@ export default function DashboardPage() {
             {message && <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-medium text-[#2563EB]">{message}</p>}
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="space-y-6">
+          <div className="space-y-6">
+            <section className="overflow-hidden rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-xl shadow-blue-100/45">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-4 py-2 text-xs font-semibold text-[#22C55E] shadow-sm">
+                    <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
+                    Everything is under control
+                  </div>
+                  <p className="mt-6 text-base font-semibold text-[#64748B]">{greeting}, {displayName}</p>
+                  <h1 className="mt-2 max-w-3xl text-4xl font-black tracking-tight text-[#0F172A] md:text-5xl">
+                    Your family care is on track today
+                  </h1>
+                  <p className="mt-4 max-w-2xl text-base leading-7 text-[#64748B]">
+                    A calm view of care happening now, what is coming next, and the moments shared with your family.
+                  </p>
+                </div>
+                <button
+                  onClick={() => router.push("/sessions")}
+                  className="w-fit rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
+                >
+                  Open care sessions
+                </button>
+              </div>
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-4 py-2 text-xs font-semibold text-[#22C55E] shadow-sm">
-                  <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
-                  Today&apos;s care status
-                </div>
-                <p className="mt-6 text-base font-semibold text-[#64748B]">{greeting},</p>
-                <h1 className="mt-1 text-5xl font-black tracking-tight text-[#0F172A]">{displayName} 👋</h1>
-                <p className="mt-4 max-w-xl text-base leading-7 text-[#64748B]">
-                  Everything is under control across kids, pets and elders.
-                </p>
-
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <button
-                    onClick={() => setActiveFilter("all")}
-                    className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
-                      activeFilter === "all"
-                        ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
-                        : "bg-[#F8FAFC] text-[#64748B] hover:bg-white"
-                    }`}
-                  >
-                    All
-                  </button>
-                  {categories.map((item) => (
-                    <button
-                      key={item.type}
-                      onClick={() => setActiveFilter(item.type)}
-                      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
-                        activeFilter === item.type
-                          ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
-                          : "bg-[#F8FAFC] text-[#64748B] hover:bg-white"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-7 grid grid-cols-3 gap-3">
-                  {categories.map((item) => (
-                    <button
-                      key={item.type}
-                      onClick={() => setActiveFilter(item.type)}
-                      className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-4 text-left transition hover:-translate-y-1 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
-                    >
-                      <div className="text-2xl">{item.icon}</div>
-                      <p className="mt-3 text-3xl font-black text-[#0F172A]">{counts[item.type]}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#64748B]">{item.label}</p>
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-                <p className="text-sm font-semibold text-[#64748B]">Quick Actions</p>
-                <h2 className="mt-1 text-2xl font-black text-[#0F172A]">What do you need?</h2>
-
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#2563EB] p-5 text-left text-white shadow-lg shadow-blue-200 transition hover:-translate-y-1">
-                    <div className="text-3xl">📅</div>
-                    <p className="mt-4 text-sm font-bold">Book care</p>
-                    <p className="mt-1 text-xs text-white/80">Schedule a visit</p>
-                  </button>
-                  <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#22C55E] p-5 text-left text-white shadow-lg shadow-emerald-100 transition hover:-translate-y-1">
-                    <div className="text-3xl">📝</div>
-                    <p className="mt-4 text-sm font-bold">Care Log</p>
-                    <p className="mt-1 text-xs text-white/80">Add update</p>
-                  </button>
-                  <button onClick={() => router.push("/ai-summary")} className="rounded-[24px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5 text-left transition hover:bg-white">
-                    <div className="text-3xl">🤖</div>
-                    <p className="mt-4 text-sm font-bold text-[#0F172A]">AI Summary</p>
-                    <p className="mt-1 text-xs text-[#64748B]">View daily reports</p>
-                  </button>
-                  <button onClick={() => router.push("/photos")} className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-5 text-left transition hover:bg-white">
-                    <div className="text-3xl">📷</div>
-                    <p className="mt-4 text-sm font-bold text-[#0F172A]">Photo reports</p>
-                    <p className="mt-1 text-xs text-[#64748B]">Upload photos</p>
-                  </button>
-                </div>
-
-                {message && <p className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-medium text-[#22C55E]">{message}</p>}
-              </section>
-            </div>
-
-            <div className="space-y-6">
-              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-[#64748B]">Today&apos;s Care</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Live overview</h2>
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Care happening now</h2>
                   </div>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">All good</span>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">
+                    {activeSessions.length > 0 ? "In progress" : "On track"}
+                  </span>
                 </div>
 
-                {filteredDependents.length === 0 ? (
+                {todaySessions.length === 0 ? (
                   <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                    <div className="text-5xl">💙</div>
-                    <p className="mt-4 font-semibold text-[#0F172A]">Add your first dependent</p>
-                    <p className="mt-2 text-sm text-[#64748B]">Kids, pets or elders.</p>
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-xl font-black text-[#2563EB] shadow-sm">
+                      OK
+                    </div>
+                    <p className="mt-4 font-semibold text-[#0F172A]">No active care right now.</p>
+                    <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                      Upcoming care will appear here as soon as it is scheduled.
+                    </p>
                   </div>
                 ) : (
                   <div className="mt-6 space-y-3">
-                    {filteredDependents.slice(0, 4).map((dependent) => {
-                      const config = typeConfig[dependent.type];
+                    {todaySessions.map((session) => {
+                      const dependent = dependentById[session.dependent_id];
+                      const config = dependent ? typeConfig[dependent.type] : null;
+                      const caregiverName = session.caregiver_name?.trim() || "Caregiver";
 
                       return (
-                        <button
-                          key={dependent.id}
-                          onClick={() => openDependent(dependent)}
-                          className="flex w-full items-center gap-4 rounded-[26px] border border-slate-100 bg-[#FFFFFF] p-4 text-left transition hover:-translate-y-0.5 hover:border-blue-100 hover:bg-white hover:shadow-lg hover:shadow-blue-100/50"
+                        <article
+                          key={session.id}
+                          className="rounded-[28px] border border-blue-100 bg-[#FFFFFF] p-4 shadow-sm transition hover:shadow-lg hover:shadow-blue-100/50"
                         >
-                          {dependent.photo_url ? (
-                            <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 rounded-[22px] object-cover" />
-                          ) : (
-                            <div className={`flex h-16 w-16 items-center justify-center rounded-[22px] text-3xl ${config.avatar}`}>
-                              {config.icon}
+                          <div className="flex items-start gap-4">
+                            {dependent?.photo_url ? (
+                              <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 rounded-[22px] object-cover" />
+                            ) : (
+                              <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] text-lg font-black ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
+                                {config?.icon || "C"}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="truncate text-base font-black text-[#0F172A]">
+                                  {dependent?.name || "Loved one"}
+                                </h3>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[session.status]}`}>
+                                  {session.status}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-sm font-semibold text-[#64748B]">
+                                Care by {caregiverName}
+                              </p>
+                              <p className="mt-1 text-sm text-[#64748B]">{formatSessionTime(session)}</p>
                             </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="truncate text-base font-black text-[#0F172A]">{dependent.name}</h3>
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.chip}`}>
-                                {config.label}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-sm font-medium text-[#64748B]">{config.care}</p>
                           </div>
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-[#2563EB]">→</span>
-                        </button>
+                          <button
+                            onClick={() => router.push("/sessions")}
+                            className="mt-4 rounded-full bg-blue-50 px-4 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-blue-100"
+                          >
+                            Open session
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+                <p className="text-sm font-semibold text-[#64748B]">Live Status</p>
+                <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Is everything okay?</h2>
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Active now", value: activeSessions.length, color: "text-[#22C55E]" },
+                    { label: "Upcoming", value: upcomingSessions.length, color: "text-[#2563EB]" },
+                    { label: "Moments today", value: momentsToday.length, color: "text-cyan-700" },
+                    { label: "Completed", value: completedToday.length, color: "text-slate-700" },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-[24px] bg-[#F8FAFC] p-4 shadow-sm ring-1 ring-blue-100/70">
+                      <p className={`text-3xl font-black ${item.color}`}>{item.value}</p>
+                      <p className="mt-1 text-xs font-semibold text-[#64748B]">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[#64748B]">Latest Moments</p>
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Shared with the family</h2>
+                  </div>
+                  <button
+                    onClick={() => router.push("/photos")}
+                    className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-blue-50"
+                  >
+                    View moments
+                  </button>
+                </div>
+
+                {latestMoments.length === 0 ? (
+                  <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-lg font-black text-[#2563EB] shadow-sm">
+                      M
+                    </div>
+                    <p className="mt-4 font-semibold text-[#0F172A]">No moments shared yet.</p>
+                    <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                      When caregivers share photos, they will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    {latestMoments.map((photo) => {
+                      const dependent = photo.dependent_id ? dependentById[photo.dependent_id] : null;
+                      const session = photo.care_session_id ? sessionById[photo.care_session_id] : null;
+
+                      return (
+                        <article key={photo.id} className="overflow-hidden rounded-[26px] border border-blue-100 bg-[#FFFFFF] shadow-sm">
+                          <button
+                            onClick={() => router.push("/photos")}
+                            className="block w-full text-left"
+                          >
+                            {photo.url ? (
+                              <img src={photo.url} alt={photo.caption || "Care moment"} className="h-36 w-full object-cover" />
+                            ) : (
+                              <div className="flex h-36 w-full items-center justify-center bg-blue-50 text-sm font-bold text-[#2563EB]">
+                                Moment
+                              </div>
+                            )}
+                            <div className="p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="line-clamp-2 text-sm font-black text-[#0F172A]">
+                                  {photo.caption || "A care moment was shared."}
+                                </p>
+                                <p className="shrink-0 text-xs font-semibold text-[#64748B]">
+                                  {formatTime(photo.created_at)}
+                                </p>
+                              </div>
+                              <p className="mt-2 text-xs font-semibold text-[#2563EB]">
+                                {dependent?.name || "Family care"}{session?.title ? ` - ${session.title}` : ""}
+                              </p>
+                            </div>
+                          </button>
+                        </article>
                       );
                     })}
                   </div>
@@ -481,61 +629,34 @@ export default function DashboardPage() {
 
               <section className="rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-lg shadow-blue-100/40">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🤖</div>
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-white text-lg font-black text-[#2563EB] shadow-sm">
+                    AI
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#64748B]">AI Summary</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Daily report ready</h2>
-                    <p className="mt-3 text-sm leading-6 text-[#64748B]">
-                      {summaryReadyDependent
-                        ? `${summaryReadyDependent.name}'s care logs and photos are ready for review.`
-                        : "Add care logs and photos to generate daily reports."}
-                    </p>
+                    <p className="text-sm font-semibold text-[#64748B]">AI Daily Story Preview</p>
+                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Today&apos;s story</h2>
+                    {latestStorySession?.summary ? (
+                      <>
+                        <p className="mt-3 text-sm leading-7 text-[#0F172A]">
+                          {latestStorySession.summary}
+                        </p>
+                        <p className="mt-3 text-xs font-semibold text-[#64748B]">
+                          {dependentById[latestStorySession.dependent_id]?.name || "Family care"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm leading-7 text-[#64748B]">
+                        Your daily story will appear here after care updates are added.
+                      </p>
+                    )}
                     <button
-                      onClick={() => router.push("/ai-summary")}
+                      onClick={() => router.push("/sessions")}
                       className="mt-5 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
                     >
-                      View AI Summary
+                      Open Daily Story
                     </button>
                   </div>
                 </div>
-              </section>
-
-              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[#64748B]">Latest Updates</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Care activity</h2>
-                  </div>
-                  <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
-                    {family.name}
-                  </span>
-                </div>
-
-                {!latestLog ? (
-                  <div className="mt-6 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center">
-                    <div className="text-3xl">📝</div>
-                    <p className="mt-2 text-sm font-semibold text-[#0F172A]">No care logs yet.</p>
-                    <button onClick={() => router.push("/care-log")} className="mt-4 rounded-full bg-[#2563EB] px-5 py-2 text-xs font-bold text-white">
-                      Add care log
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={() => router.push("/care-log")} className="mt-6 block w-full rounded-[26px] border border-slate-100 bg-[#FFFFFF] p-5 text-left transition hover:bg-white hover:shadow-lg hover:shadow-blue-100/50">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-xl">📝</div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-sm font-bold text-[#0F172A]">{latestLog.title || latestLog.type}</p>
-                          <p className="text-xs font-semibold text-[#64748B]">{formatTime(latestLog.created_at)}</p>
-                        </div>
-                        <p className="mt-1 text-xs font-semibold text-[#2563EB]">
-                          {dependents.find((item) => item.id === latestLog.dependent_id)?.name || "CareOS"}
-                        </p>
-                        {latestLog.note && <p className="mt-2 text-sm leading-6 text-[#64748B]">{latestLog.note}</p>}
-                      </div>
-                    </div>
-                  </button>
-                )}
               </section>
             </div>
           </div>
