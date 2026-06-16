@@ -509,7 +509,7 @@ export default function DashboardPage() {
                         >
                           <div className="flex items-start gap-4">
                             {dependent?.photo_url ? (
-                              <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 rounded-[22px] object-cover" />
+                              <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-blue-50" />
                             ) : (
                               <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] text-lg font-black ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
                                 {config?.icon || "C"}
