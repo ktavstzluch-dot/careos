@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -54,6 +54,25 @@ const logTypes = [
   { type: "photo", label: "Photo", icon: "📷" },
   { type: "note", label: "Note", icon: "📝" },
 ];
+
+const PROFILE_PHOTO_BUCKET = "child-photos";
+
+function splitProfileName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length <= 1) {
+    return { firstName: parts[0] || "", lastName: "" };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+function getDateInputValue(value: string | null) {
+  return value ? value.slice(0, 10) : "";
+}
 
 const typeConfig: Record<
   DependentType,
@@ -190,6 +209,14 @@ export default function DependentProfilePage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileFirstName, setProfileFirstName] = useState("");
+  const [profileLastName, setProfileLastName] = useState("");
+  const [profileBirthDate, setProfileBirthDate] = useState("");
+  const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
 
   async function loadProfile() {
     const { data: userData } = await supabase.auth.getUser();
@@ -244,10 +271,20 @@ export default function DependentProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dependentId]);
 
+  useEffect(() => {
+    return () => {
+      if (profilePhotoPreview) {
+        URL.revokeObjectURL(profilePhotoPreview);
+      }
+    };
+  }, [profilePhotoPreview]);
+
   const displayName = useMemo(() => getDisplayName(email), [email]);
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const config = dependent ? typeConfig[dependent.type] : null;
+  const canEditProfile = dependent?.type === "child" || dependent?.type === "pet";
+  const profilePhotoSrc = profilePhotoPreview || dependent?.photo_url || "";
 
   const age = useMemo(() => {
     if (!dependent) return null;
@@ -342,6 +379,121 @@ export default function DependentProfilePage() {
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/sign-in");
+  }
+
+  function resetProfileForm(nextDependent = dependent) {
+    if (!nextDependent) return;
+
+    const { firstName, lastName } = splitProfileName(nextDependent.name);
+    setProfileFirstName(firstName);
+    setProfileLastName(lastName);
+    setProfileBirthDate(getDateInputValue(nextDependent.date_of_birth));
+    setProfilePhotoFile(null);
+    setProfilePhotoPreview("");
+    setProfileMessage("");
+  }
+
+  function handleStartProfileEdit() {
+    resetProfileForm();
+    setIsEditingProfile(true);
+  }
+
+  function handleCancelProfileEdit() {
+    resetProfileForm();
+    setIsEditingProfile(false);
+  }
+
+  function handleProfilePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setProfileMessage("Please choose an image file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setProfileMessage("Please choose an image under 5 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (profilePhotoPreview) {
+      URL.revokeObjectURL(profilePhotoPreview);
+    }
+
+    setProfilePhotoFile(file);
+    setProfilePhotoPreview(URL.createObjectURL(file));
+    setProfileMessage("");
+    event.target.value = "";
+  }
+
+  async function handleSaveProfile() {
+    setProfileMessage("");
+
+    if (!dependent || !canEditProfile) return;
+
+    const firstName = profileFirstName.trim();
+    const lastName = profileLastName.trim();
+
+    if (!firstName) {
+      setProfileMessage("Please add a first name.");
+      return;
+    }
+
+    setSavingProfile(true);
+
+    let nextPhotoUrl = dependent.photo_url;
+
+    if (profilePhotoFile) {
+      const safeName = profilePhotoFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const storagePath = `${dependent.family_id}/${dependent.id}/profile-${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(PROFILE_PHOTO_BUCKET)
+        .upload(storagePath, profilePhotoFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        setSavingProfile(false);
+        setProfileMessage(uploadError.message);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(storagePath);
+      nextPhotoUrl = publicUrlData.publicUrl;
+    }
+
+    const nextName = [firstName, lastName].filter(Boolean).join(" ");
+
+    const { data, error } = await supabase
+      .from("dependents")
+      .update({
+        name: nextName,
+        date_of_birth: profileBirthDate || null,
+        photo_url: nextPhotoUrl,
+      })
+      .eq("id", dependent.id)
+      .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, created_at, legacy_child_id")
+      .single();
+
+    setSavingProfile(false);
+
+    if (error) {
+      setProfileMessage(error.message);
+      return;
+    }
+
+    const updatedDependent = data as Dependent;
+    setDependent(updatedDependent);
+    setIsEditingProfile(false);
+    setProfilePhotoFile(null);
+    setProfilePhotoPreview("");
+    setProfileMessage("Profile updated.");
   }
 
   async function handleAddQuickLog() {
@@ -465,15 +617,111 @@ export default function DependentProfilePage() {
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${config.chip}`}>
-                      {config.label}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${config.chip}`}>
+                        {config.label}
+                      </span>
+                      {canEditProfile && !isEditingProfile && (
+                        <button
+                          onClick={handleStartProfileEdit}
+                          className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#2563EB] shadow-sm ring-1 ring-blue-100 transition hover:bg-blue-50"
+                        >
+                          Edit profile
+                        </button>
+                      )}
+                    </div>
                     <h1 className="mt-3 truncate text-4xl font-black tracking-tight text-[#0F172A]">{dependent.name}</h1>
                     <p className="mt-2 text-sm font-semibold text-[#64748B]">{config.headline}</p>
                   </div>
                 </div>
 
                 <p className="mt-6 text-base leading-7 text-[#64748B]">{config.summary}</p>
+
+                {canEditProfile && isEditingProfile && (
+                  <div className="mt-6 rounded-[28px] bg-white/90 p-5 shadow-sm ring-1 ring-blue-100">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                      <div className="shrink-0">
+                        <div className="overflow-hidden rounded-[26px] bg-[#F8FAFC] ring-1 ring-blue-100">
+                          {profilePhotoSrc ? (
+                            <img src={profilePhotoSrc} alt={dependent.name} className="h-28 w-28 object-cover" />
+                          ) : (
+                            <div className={`flex h-28 w-28 items-center justify-center text-5xl ${config.avatar}`}>
+                              {config.icon}
+                            </div>
+                          )}
+                        </div>
+                        <label className="mt-3 block cursor-pointer rounded-full bg-blue-50 px-4 py-2 text-center text-xs font-bold text-[#2563EB] transition hover:bg-blue-100">
+                          Change photo
+                          <input type="file" accept="image/*" onChange={handleProfilePhotoChange} className="hidden" />
+                        </label>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-[#0F172A]">Profile details</p>
+                        <p className="mt-1 text-xs leading-5 text-[#64748B]">
+                          Keep this care profile familiar and up to date for your family.
+                        </p>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <label className="text-xs font-bold text-[#64748B]">
+                            First name
+                            <input
+                              value={profileFirstName}
+                              onChange={(event) => setProfileFirstName(event.target.value)}
+                              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                              placeholder="Emma"
+                            />
+                          </label>
+                          <label className="text-xs font-bold text-[#64748B]">
+                            Last name
+                            <input
+                              value={profileLastName}
+                              onChange={(event) => setProfileLastName(event.target.value)}
+                              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                              placeholder="Hakobyan"
+                            />
+                          </label>
+                          <label className="text-xs font-bold text-[#64748B] sm:col-span-2">
+                            Date of birth
+                            <input
+                              type="date"
+                              value={profileBirthDate}
+                              onChange={(event) => setProfileBirthDate(event.target.value)}
+                              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                            />
+                          </label>
+                        </div>
+
+                        {profileMessage && (
+                          <p className="mt-3 text-xs font-semibold text-[#64748B]">{profileMessage}</p>
+                        )}
+
+                        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                          <button
+                            onClick={handleSaveProfile}
+                            disabled={savingProfile}
+                            className="rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {savingProfile ? "Saving..." : "Save changes"}
+                          </button>
+                          <button
+                            onClick={handleCancelProfileEdit}
+                            disabled={savingProfile}
+                            className="rounded-full bg-white px-5 py-3 text-sm font-bold text-[#64748B] ring-1 ring-blue-100 transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {canEditProfile && !isEditingProfile && profileMessage && (
+                  <p className="mt-4 rounded-full bg-emerald-50 px-4 py-2 text-xs font-bold text-[#22C55E]">
+                    {profileMessage}
+                  </p>
+                )}
 
                 <div className="mt-6 grid grid-cols-3 gap-3">
                   <div className="rounded-[24px] bg-white/90 p-4 shadow-sm ring-1 ring-blue-100">
