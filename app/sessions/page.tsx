@@ -76,6 +76,7 @@ type TimelineItem = {
   title: string;
   note: string;
   detail?: string;
+  identity?: string;
   photoUrls?: string[];
   photoAlt?: string;
   kind: "system" | "log" | "photo";
@@ -408,6 +409,12 @@ function getCareStoryLogDetails(
   };
 }
 
+function getCareStoryIdentity(kind: TimelineItem["kind"], caregiverName: string) {
+  if (kind === "photo") return `Shared by ${caregiverName}`;
+  if (kind === "system") return `Care by ${caregiverName}`;
+  return `Added by ${caregiverName}`;
+}
+
 function buildSessionSummaryText({
   session,
   dependent,
@@ -627,6 +634,7 @@ export default function CareSessionsPage() {
   const sessionTimeline = useMemo(() => {
     if (!selectedSession) return [];
     const items: TimelineItem[] = [];
+    const caregiverName = selectedSession.caregiver_name?.trim() || "Caregiver";
     const sortedLogs = [...selectedLogs].sort(
       (a, b) =>
         (a.created_at ? new Date(a.created_at).getTime() : 0) -
@@ -640,7 +648,8 @@ export default function CareSessionsPage() {
         time: selectedSession.check_in_at,
         icon: "💚",
         title: "Care started",
-        note: `${selectedSession.caregiver_name || "Caregiver"} checked in and began caring for ${selectedDependent?.name || "your loved one"}.`,
+        note: `${caregiverName} checked in and began caring for ${selectedDependent?.name || "your loved one"}.`,
+        identity: getCareStoryIdentity("system", caregiverName),
         kind: "system",
         color: "session",
       });
@@ -669,6 +678,7 @@ export default function CareSessionsPage() {
               startedLog.created_at,
               log.created_at,
             ),
+            identity: getCareStoryIdentity("log", caregiverName),
             kind: "log",
             color: "sleep",
           });
@@ -680,6 +690,7 @@ export default function CareSessionsPage() {
         id: log.id,
         time: log.created_at,
         ...getCareStoryLogDetails(log),
+        identity: getCareStoryIdentity("log", caregiverName),
         kind: "log",
       });
     });
@@ -689,6 +700,7 @@ export default function CareSessionsPage() {
         id: log.id,
         time: log.created_at,
         ...getCareStoryLogDetails(log),
+        identity: getCareStoryIdentity("log", caregiverName),
         kind: "log",
       }),
     );
@@ -725,6 +737,7 @@ export default function CareSessionsPage() {
           report.urls.length > 1
             ? `${report.urls.length} photos uploaded`
             : undefined,
+        identity: getCareStoryIdentity("photo", caregiverName),
         photoUrls: report.urls,
         photoAlt: report.caption,
         kind: "photo",
@@ -738,6 +751,7 @@ export default function CareSessionsPage() {
         icon: "🏡",
         title: "Care ended",
         note: "Care session was completed and everyone is all set.",
+        identity: getCareStoryIdentity("system", caregiverName),
         kind: "system",
         color: "session",
       });
@@ -1830,6 +1844,11 @@ export default function CareSessionsPage() {
                                 {item.detail && (
                                   <p className="mt-1 text-sm font-black text-[#64748B]">
                                     {item.detail}
+                                  </p>
+                                )}
+                                {item.identity && (
+                                  <p className="mt-2 text-xs font-bold text-[#64748B]">
+                                    {item.identity}
                                   </p>
                                 )}
                                 {item.photoUrls && item.photoUrls.length > 0 && (
