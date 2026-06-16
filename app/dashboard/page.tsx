@@ -592,30 +592,41 @@ export default function DashboardPage() {
                     {latestMoments.map((photo) => {
                       const dependent = photo.dependent_id ? dependentById[photo.dependent_id] : null;
                       const session = photo.care_session_id ? sessionById[photo.care_session_id] : null;
+                      const caregiverName = session?.caregiver_name?.trim() || "Caregiver";
 
                       return (
-                        <article key={photo.id} className="overflow-hidden rounded-[26px] border border-blue-100 bg-[#FFFFFF] shadow-sm">
+                        <article key={photo.id} className="overflow-hidden rounded-[28px] border border-blue-100 bg-[#FFFFFF] shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-100/50">
                           <button
                             onClick={() => router.push("/photos")}
                             className="block w-full text-left"
                           >
-                            {photo.url ? (
-                              <img src={photo.url} alt={photo.caption || "Care moment"} className="h-36 w-full object-cover" />
-                            ) : (
-                              <div className="flex h-36 w-full items-center justify-center bg-blue-50 text-sm font-bold text-[#2563EB]">
-                                Moment
+                            <div className="relative h-44 overflow-hidden bg-blue-50">
+                              {photo.url ? (
+                                <img src={photo.url} alt={photo.caption || "Care moment"} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-blue-50 text-sm font-bold text-[#2563EB]">
+                                  Moment
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0F172A]/70 to-transparent p-4 pt-10">
+                                <p className="text-xs font-bold text-white">
+                                  Shared by {caregiverName}
+                                </p>
                               </div>
-                            )}
+                            </div>
                             <div className="p-4">
                               <div className="flex items-start justify-between gap-3">
-                                <p className="line-clamp-2 text-sm font-black text-[#0F172A]">
+                                <p className="line-clamp-2 text-base font-black leading-6 text-[#0F172A]">
                                   {photo.caption || "A care moment was shared."}
                                 </p>
                                 <p className="shrink-0 text-xs font-semibold text-[#64748B]">
                                   {formatTime(photo.created_at)}
                                 </p>
                               </div>
-                              <p className="mt-2 text-xs font-semibold text-[#2563EB]">
+                              <p className="mt-3 text-xs font-bold text-[#22C55E]">
+                                Shared by {caregiverName}
+                              </p>
+                              <p className="mt-1 text-xs font-semibold text-[#64748B]">
                                 {dependent?.name || "Family care"}{session?.title ? ` - ${session.title}` : ""}
                               </p>
                             </div>
