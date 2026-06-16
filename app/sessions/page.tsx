@@ -415,6 +415,78 @@ function getCareStoryIdentity(kind: TimelineItem["kind"], caregiverName: string)
   return `Added by ${caregiverName}`;
 }
 
+function joinWarmList(items: string[]) {
+  const cleanItems = items.map((item) => item.trim()).filter(Boolean);
+
+  if (cleanItems.length === 0) return "";
+  if (cleanItems.length === 1) return cleanItems[0];
+  if (cleanItems.length === 2) return `${cleanItems[0]} and ${cleanItems[1]}`;
+
+  return `${cleanItems.slice(0, -1).join(", ")}, and ${cleanItems[cleanItems.length - 1]}`;
+}
+
+function getCareLogValue(log: CareLog) {
+  const value = log.value?.trim();
+  const note = log.note?.trim();
+  const detail = value || note || "";
+  const genericDetails = [
+    "Meal completed.",
+    "Medicine given.",
+    "Mood checked.",
+    "Activity completed.",
+    "Care note added.",
+    "Sleep started.",
+    "Sleep ended.",
+  ];
+
+  if (genericDetails.includes(detail)) return "";
+  return detail.replace(/^Mood:\s*/i, "");
+}
+
+function getSleepStory(logs: CareLog[], dependentName: string) {
+  const sleepLogs = logs
+    .filter((log) => log.type === "sleep")
+    .sort(
+      (a, b) =>
+        (a.created_at ? new Date(a.created_at).getTime() : 0) -
+        (b.created_at ? new Date(b.created_at).getTime() : 0),
+    );
+
+  if (sleepLogs.length === 0) return "";
+
+  const pendingStarts: CareLog[] = [];
+  let totalSleepMs = 0;
+
+  sleepLogs.forEach((log) => {
+    const value = log.value?.trim();
+
+    if (value === "start") {
+      pendingStarts.push(log);
+      return;
+    }
+
+    if (value === "end") {
+      const startedLog = pendingStarts.shift();
+
+      if (startedLog?.created_at && log.created_at) {
+        totalSleepMs += Math.max(
+          0,
+          new Date(log.created_at).getTime() - new Date(startedLog.created_at).getTime(),
+        );
+      }
+    }
+  });
+
+  if (totalSleepMs > 0) {
+    return `${dependentName} rested for ${formatCareStoryDuration(
+      new Date(0).toISOString(),
+      new Date(totalSleepMs).toISOString(),
+    )}.`;
+  }
+
+  return `${dependentName} had a rest during care.`;
+}
+
 function buildSessionSummaryText({
   session,
   dependent,
@@ -428,35 +500,80 @@ function buildSessionSummaryText({
   photos: Photo[];
   messages: CareMessage[];
 }) {
-  const dependentName = dependent?.name || "The dependent";
-  const caregiverName = session.caregiver_name || "The caregiver";
-  const sessionTitle = session.title || "care session";
-  const completedText =
-    session.status === "completed"
-      ? "The session was completed successfully."
-      : "The session is still in progress.";
-  const logTitles = logs.map((log) => log.title || log.type).filter(Boolean);
-  const importantLogs =
-    logTitles.length > 0
-      ? `${dependentName} had updates for ${logTitles.slice(0, 6).join(", ").toLowerCase()}.`
-      : `${dependentName} did not have detailed care log updates yet.`;
-  const photoText =
-    photos.length === 1
-      ? "One moment was shared during the session."
-      : photos.length > 1
-        ? `${photos.length} moments were shared during the session.`
-        : "No moments were shared yet.";
-  const messageText =
-    messages.length > 0
-      ? `${messages.length} chat message${messages.length === 1 ? " was" : "s were"} exchanged during this care session.`
-      : "No session messages were exchanged yet.";
-  const timingText =
+  const dependentName = dependent?.name || "your loved one";
+  const caregiverName = session.caregiver_name?.trim() || "Caregiver";
+  const storyParts: string[] = [];
+
+  const careTimeText =
     session.check_in_at && session.check_out_at
-      ? `Actual care time was from ${formatClockTime(session.check_in_at)} to ${formatClockTime(session.check_out_at)}.`
+      ? ` for ${formatCareStoryDuration(session.check_in_at, session.check_out_at)}`
+      : session.starts_at && session.ends_at
+        ? ` for ${formatCareStoryDuration(session.starts_at, session.ends_at)}`
+        : "";
+  const timeDetail =
+    session.check_in_at && session.check_out_at
+      ? `Care time was ${formatClockTime(session.check_in_at)} to ${formatClockTime(session.check_out_at)}.`
       : session.check_in_at
-        ? `Care started at ${formatClockTime(session.check_in_at)}.`
-        : `The session is scheduled for ${formatDateTime(session.starts_at)}.`;
-  return `${sessionTitle} summary: ${caregiverName} cared for ${dependentName}. ${timingText} ${importantLogs} ${photoText} ${messageText} ${completedText}`;
+        ? `Care started at ${formatClockTime(session.check_in_at)} and is still unfolding.`
+        : session.starts_at
+          ? `Care was planned for ${formatDateTime(session.starts_at)}.`
+          : "";
+
+  storyParts.push(`Today ${caregiverName} cared for ${dependentName}${careTimeText}.`);
+  if (timeDetail) storyParts.push(timeDetail);
+
+  const sleepStory = getSleepStory(logs, dependentName);
+  if (sleepStory) storyParts.push(sleepStory);
+
+  const mealLogs = logs.filter((log) => log.type === "meal");
+  const mealDetails = mealLogs
+    .map(getCareLogValue)
+    .filter(Boolean);
+  if (mealDetails.length > 0) {
+    storyParts.push(`${dependentName} ate ${joinWarmList(mealDetails.slice(0, 3))}.`);
+  } else if (mealLogs.length > 0) {
+    storyParts.push(`${dependentName} had meal care during the day.`);
+  }
+
+  const medicineLogs = logs.filter((log) => log.type === "medicine");
+  const medicineDetails = medicineLogs
+    .map(getCareLogValue)
+    .filter(Boolean);
+  if (medicineDetails.length > 0) {
+    storyParts.push(`${caregiverName} gave ${joinWarmList(medicineDetails.slice(0, 3))}.`);
+  } else if (medicineLogs.length > 0) {
+    storyParts.push(`${caregiverName} took care of medicine for ${dependentName}.`);
+  }
+
+  const moodLogs = logs.filter((log) => log.type === "mood");
+  const moodDetails = moodLogs
+    .map(getCareLogValue)
+    .filter(Boolean);
+  if (moodDetails.length > 0) {
+    storyParts.push(`${dependentName} seemed ${joinWarmList(moodDetails.slice(0, 3).map((mood) => mood.toLowerCase()))}.`);
+  } else if (moodLogs.length > 0) {
+    storyParts.push(`${caregiverName} checked in on how ${dependentName} was feeling.`);
+  }
+
+  storyParts.push(
+    photos.length === 1
+      ? `${caregiverName} also shared 1 moment with the family.`
+      : `${caregiverName} also shared ${photos.length} moments with the family.`,
+  );
+
+  if (messages.length > 0) {
+    storyParts.push(
+      `The family stayed connected with ${messages.length} message${messages.length === 1 ? "" : "s"} during care.`,
+    );
+  }
+
+  storyParts.push(
+    session.status === "completed"
+      ? `Everything was wrapped up with care, so the family can feel close to ${dependentName}'s day.`
+      : `This story will keep growing as ${caregiverName} shares more care moments.`,
+  );
+
+  return storyParts.join(" ");
 }
 
 export default function CareSessionsPage() {
@@ -1049,7 +1166,7 @@ export default function CareSessionsPage() {
       sessions.map((item) => (item.id === updated.id ? updated : item)),
     );
     setSelectedSessionId(updated.id);
-    setMessage("AI summary generated and saved.");
+    setMessage("AI Daily Story generated and saved.");
   }
 
   if (loading) {
@@ -1601,10 +1718,10 @@ export default function CareSessionsPage() {
                   >
                     <div className="text-2xl">🤖</div>
                     <p className="mt-3 text-sm font-black text-[#0F172A]">
-                      Summary
+                      Daily Story
                     </p>
                     <p className="mt-1 text-xs text-[#64748B]">
-                      Generate report
+                      Warm recap
                     </p>
                   </button>
                 </div>
@@ -1616,14 +1733,14 @@ export default function CareSessionsPage() {
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-[#64748B]">
-                      AI Session Summary
+                      AI Daily Story
                     </p>
                     <h2 className="mt-1 text-2xl font-black text-[#0F172A]">
-                      Care report draft
+                      Today&apos;s story draft
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                      Generates a parent-friendly report from timeline, care
-                      logs, moments and messages.
+                      Creates a warm, family-facing story from care moments,
+                      updates and messages.
                     </p>
                   </div>
                   <button
@@ -1631,7 +1748,7 @@ export default function CareSessionsPage() {
                     disabled={generatingSummary}
                     className={`rounded-full px-5 py-3 text-xs font-bold text-white shadow-sm transition ${generatingSummary ? "cursor-not-allowed bg-slate-300" : "bg-[#2563EB] shadow-blue-100 hover:bg-[#1D4ED8]"}`}
                   >
-                    {generatingSummary ? "Generating..." : "Generate Summary"}
+                    {generatingSummary ? "Generating..." : "Generate Story"}
                   </button>
                 </div>
                 <div className="mt-6 rounded-[28px] bg-white/90 p-5 shadow-sm ring-1 ring-blue-100">
@@ -1643,11 +1760,11 @@ export default function CareSessionsPage() {
                     <div className="text-center">
                       <div className="text-4xl">🤖</div>
                       <p className="mt-3 text-sm font-bold text-[#0F172A]">
-                        No summary yet.
+                        No story yet.
                       </p>
                       <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                        Add care events, moments or messages, then
-                        generate the first session summary.
+                        Add care moments, updates or messages, then
+                        create the first Daily Story.
                       </p>
                     </div>
                   )}
@@ -1658,7 +1775,7 @@ export default function CareSessionsPage() {
                       {selectedLogs.length}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-[#64748B]">
-                      Care logs
+                      Care updates
                     </p>
                   </div>
                   <div className="rounded-[22px] bg-white/80 p-4 shadow-sm">
