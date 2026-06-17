@@ -36,7 +36,7 @@ const navItems = [
   { label: "Home", icon: "\u2302", href: "/dashboard" },
   { label: "Schedule", icon: "\u25A3", href: "/schedule" },
   { label: "Care Log", icon: "\u25A1", href: "/care-log" },
-  { label: "Photos", icon: "\u25CD", href: "/photos" },
+  { label: "Messages", icon: "\u25CD", href: "/messages" },
   { label: "Profile", icon: "\u2659", href: "/profile" },
 ];
 
