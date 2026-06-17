@@ -506,17 +506,18 @@ export default function DashboardPage() {
             {message && <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-medium text-[#2563EB]">{message}</p>}
           </div>
         ) : (
-          <div className="mx-auto max-w-md space-y-5 md:max-w-2xl">
-            <section className="px-1 pt-2">
-              <h1 className="text-2xl font-black leading-tight text-[#0F172A] md:text-3xl">
+          <div className="mx-auto max-w-md space-y-5 md:max-w-6xl">
+            <section className="px-1 pt-2 md:rounded-[36px] md:border md:border-blue-100 md:bg-gradient-to-br md:from-white md:via-blue-50 md:to-emerald-50 md:p-8 md:shadow-xl md:shadow-blue-100/45">
+              <h1 className="text-2xl font-black leading-tight text-[#0F172A] md:text-4xl lg:text-5xl">
                 {greeting}, {displayName} 👋
               </h1>
-              <p className="mt-2 text-sm font-semibold text-[#64748B]">Everything is under control</p>
+              <p className="mt-2 text-sm font-semibold text-[#64748B] md:text-base">Everything is under control</p>
             </section>
 
-            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45">
+            <div className="grid gap-5 md:grid-cols-[1.08fr_0.92fr] md:items-start">
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[360px] md:p-6">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-black text-[#0F172A]">Today&apos;s Care</h2>
+                <h2 className="text-base font-black text-[#0F172A] md:text-xl">Today&apos;s Care</h2>
                 <button
                   onClick={() => router.push("/sessions")}
                   className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#2563EB] transition hover:bg-blue-100"
@@ -526,12 +527,12 @@ export default function DashboardPage() {
               </div>
 
               {todaySessions.length === 0 ? (
-                <div className="mt-4 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center">
+                <div className="mt-4 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center md:mt-6 md:p-10">
                   <p className="font-semibold text-[#0F172A]">No care scheduled today.</p>
                   <p className="mt-2 text-sm leading-6 text-[#64748B]">Scheduled care will appear here.</p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-3 md:mt-6 xl:grid xl:grid-cols-2 xl:gap-3 xl:space-y-0">
                   {todaySessions.map((session) => {
                     const dependent = dependentById[session.dependent_id];
                     const config = dependent ? typeConfig[dependent.type] : null;
@@ -540,7 +541,7 @@ export default function DashboardPage() {
                     return (
                       <article
                         key={session.id}
-                        className="flex items-center gap-3 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-3 shadow-sm"
+                        className="flex items-center gap-3 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-3 shadow-sm md:p-4"
                       >
                         {dependent?.photo_url ? (
                           <img
@@ -583,25 +584,25 @@ export default function DashboardPage() {
               )}
             </section>
 
-            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45">
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[360px] md:p-6">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-black text-[#0F172A]">Live Status</h2>
+                <h2 className="text-base font-black text-[#0F172A] md:text-xl">Live Status</h2>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#22C55E]">
                   All good
                 </span>
               </div>
 
               {liveStatusItems.length === 0 ? (
-                <div className="mt-4 rounded-[24px] bg-[#F8FAFC] p-5">
+                <div className="mt-4 rounded-[24px] bg-[#F8FAFC] p-5 md:mt-6">
                   <p className="font-semibold text-[#0F172A]">Nothing active right now.</p>
                   <p className="mt-2 text-sm leading-6 text-[#64748B]">
                     Care updates will appear here as the day unfolds.
                   </p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-4 md:mt-6">
                   {liveStatusItems.map((item) => (
-                    <div key={item.id} className="flex gap-3">
+                    <div key={item.id} className="flex gap-3 rounded-[20px] md:bg-[#F8FAFC] md:p-3">
                       <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${item.active ? "bg-[#22C55E]" : "bg-emerald-200"}`} />
                       <div className="min-w-0">
                         <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
@@ -612,20 +613,21 @@ export default function DashboardPage() {
                 </div>
               )}
             </section>
+            </div>
 
-            <section className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5 shadow-lg shadow-blue-100/40">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-white text-sm font-black text-[#2563EB] shadow-sm">
+            <section className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5 shadow-lg shadow-blue-100/40 md:p-8">
+              <div className="flex items-start gap-4 md:items-center md:gap-6">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-white text-sm font-black text-[#2563EB] shadow-sm md:h-16 md:w-16 md:rounded-[24px] md:text-base">
                   AI
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-base font-black text-[#0F172A]">AI Summary</h2>
-                  <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                  <h2 className="text-base font-black text-[#0F172A] md:text-xl">AI Summary</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#64748B] md:max-w-3xl md:text-base md:leading-7">
                     {summarySession?.summary?.trim() || "AI will summarize today’s care once updates are added."}
                   </p>
                   <button
                     onClick={() => router.push("/ai-summary")}
-                    className="mt-4 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-[#1D4ED8]"
+                    className="mt-4 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-[#1D4ED8] md:px-6 md:py-3"
                   >
                     Open AI Summary
                   </button>
