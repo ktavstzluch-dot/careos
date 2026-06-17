@@ -41,16 +41,16 @@ type CareSession = {
   created_at: string;
 };
 
-type Photo = {
+type CareLog = {
   id: string;
   family_id: string | null;
   dependent_id: string | null;
   care_session_id: string | null;
-  url: string | null;
-  storage_path: string | null;
-  caption: string | null;
+  type: string;
+  title: string | null;
+  note: string | null;
+  value: string | null;
   created_at: string | null;
-  created_by: string | null;
 };
 
 const navItems = [
@@ -67,19 +67,19 @@ const typeConfig: Record<
 > = {
   child: {
     label: "Child",
-    icon: "C",
-    chip: "bg-blue-50 text-[#2563EB]",
-    avatar: "bg-blue-50 text-[#2563EB]",
+    icon: "person",
+    chip: "bg-violet-50 text-violet-700",
+    avatar: "bg-violet-50 text-violet-700",
   },
   pet: {
     label: "Pet",
-    icon: "P",
+    icon: "paw",
     chip: "bg-emerald-50 text-[#22C55E]",
     avatar: "bg-emerald-50 text-[#22C55E]",
   },
   elder: {
     label: "Elder",
-    icon: "E",
+    icon: "elder",
     chip: "bg-violet-50 text-violet-700",
     avatar: "bg-violet-50 text-violet-700",
   },
@@ -112,11 +112,34 @@ function CareOSLogo() {
   );
 }
 
+function DependentTypeIcon({ type }: { type: DependentType }) {
+  if (type === "pet") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+        <circle cx="7" cy="8" r="2.2" />
+        <circle cx="12" cy="6.5" r="2.2" />
+        <circle cx="17" cy="8" r="2.2" />
+        <circle cx="8.5" cy="13" r="2.2" />
+        <circle cx="15.5" cy="13" r="2.2" />
+        <path d="M12 12.2c3.1 0 5.4 2.3 5.4 5 0 1.3-.9 2.3-2.2 2.3-.9 0-1.8-.5-3.2-.5s-2.3.5-3.2.5c-1.3 0-2.2-1-2.2-2.3 0-2.7 2.3-5 5.4-5Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+      <circle cx="12" cy="7.5" r="3.5" />
+      <path d="M5.5 20c.8-4 3.2-6.2 6.5-6.2s5.7 2.2 6.5 6.2H5.5Z" />
+    </svg>
+  );
+}
+
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  if (hour >= 17 && hour < 21) return "Good evening";
+  return "Good night";
 }
 
 function getDisplayName(email?: string) {
@@ -132,23 +155,39 @@ function formatTime(value: string | null) {
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(value));
 }
 
-function formatDateTime(value: string | null) {
-  if (!value) return "Time to be set";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
+function getCareTypeLabel(session: CareSession) {
+  return session.title?.trim() || session.care_type?.trim() || "Care session";
 }
 
-function formatSessionTime(session: CareSession) {
-  const start = session.check_in_at || session.starts_at;
-  const end = session.check_out_at || session.ends_at;
+function getCareUpdateTitle(update: CareLog) {
+  if (update.title?.trim()) return update.title.trim();
 
-  if (!start && !end) return "Time to be set";
-  if (!end) return formatDateTime(start);
-  return `${formatTime(start)} - ${formatTime(end)}`;
+  const titleByType: Record<string, string> = {
+    meal: "Lunch",
+    medicine: "Medicine",
+    mood: "Mood",
+    nap: "Nap",
+    sleep: "Nap",
+    sleep_start: "Nap",
+    sleep_end: "Nap",
+    activity: "Activity",
+    note: "Care update",
+  };
+
+  return titleByType[update.type] || "Care update";
+}
+
+function getCareUpdateSubtitle(update: CareLog) {
+  const detail = update.value?.trim() || update.note?.trim();
+
+  if (update.type === "meal" && detail) return `Ate ${detail}`;
+  if (update.type === "medicine" && detail) return `Given ${detail}`;
+  if (update.type === "mood" && detail) return detail;
+  if (update.type === "sleep_start") return "Rest started";
+  if (update.type === "sleep_end") return "Rest ended";
+  if (detail) return detail;
+
+  return `Today at ${formatTime(update.created_at)}`;
 }
 
 function isToday(value: string | null) {
@@ -179,7 +218,7 @@ export default function DashboardPage() {
   const [family, setFamily] = useState<Family | null>(null);
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [sessions, setSessions] = useState<CareSession[]>([]);
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [careLogs, setCareLogs] = useState<CareLog[]>([]);
   const [familyName, setFamilyName] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -230,14 +269,14 @@ export default function DashboardPage() {
 
     setSessions((sessionsData || []) as CareSession[]);
 
-    const { data: photosData } = await supabase
-      .from("photos")
-      .select("id, family_id, dependent_id, care_session_id, url, storage_path, caption, created_at, created_by")
+    const { data: careLogsData } = await supabase
+      .from("care_logs")
+      .select("id, family_id, dependent_id, care_session_id, type, title, note, value, created_at")
       .eq("family_id", familyData.id)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(40);
 
-    setPhotos((photosData || []) as Photo[]);
+    setCareLogs((careLogsData || []) as CareLog[]);
     setLoading(false);
   }
 
@@ -257,42 +296,25 @@ export default function DashboardPage() {
     }, {});
   }, [dependents]);
 
-  const sessionById = useMemo(() => {
-    return sessions.reduce<Record<string, CareSession>>((acc, session) => {
-      acc[session.id] = session;
-      return acc;
-    }, {});
-  }, [sessions]);
-
   const activeSessions = useMemo(
     () => sessions.filter((session) => session.status === "active"),
     [sessions],
   );
 
-  const upcomingSessions = useMemo(() => {
-    const now = Date.now();
-    return sessions
-      .filter((session) => session.status === "scheduled" && (!session.starts_at || new Date(session.starts_at).getTime() >= now))
-      .sort((a, b) => getSessionTimeValue(a) - getSessionTimeValue(b));
-  }, [sessions]);
-
   const todaySessions = useMemo(() => {
-    const careNow = [...activeSessions, ...upcomingSessions]
+    const careNow = [...sessions]
       .filter(
         (session) =>
           session.status === "active" ||
           isToday(session.starts_at) ||
-          isToday(session.check_in_at),
+          isToday(session.check_in_at) ||
+          isToday(session.ends_at) ||
+          isToday(session.check_out_at),
       )
       .sort((a, b) => getSessionTimeValue(a) - getSessionTimeValue(b));
 
     return careNow.slice(0, 4);
-  }, [activeSessions, upcomingSessions]);
-
-  const momentsToday = useMemo(
-    () => photos.filter((photo) => isToday(photo.created_at)),
-    [photos],
-  );
+  }, [sessions]);
 
   const completedToday = useMemo(
     () =>
@@ -304,13 +326,49 @@ export default function DashboardPage() {
     [sessions],
   );
 
-  const latestMoments = photos.slice(0, 4);
+  const todayCareLogs = useMemo(
+    () => careLogs.filter((update) => isToday(update.created_at)),
+    [careLogs],
+  );
 
-  const latestStorySession = useMemo(() => {
-    return [...sessions]
+  const liveStatusItems = useMemo(() => {
+    const activeSessionIds = new Set(activeSessions.map((session) => session.id));
+    const activeItems = activeSessions.map((session) => ({
+      id: `active-${session.id}`,
+      title: `${session.caregiver_name?.trim() || "Caregiver"} on duty`,
+      subtitle: `Started at ${formatTime(session.check_in_at || session.starts_at)}`,
+      active: true,
+      time: getSessionTimeValue(session),
+    }));
+
+    const updateItems = todayCareLogs.slice(0, 5).map((update) => ({
+      id: `update-${update.id}`,
+      title: getCareUpdateTitle(update),
+      subtitle: getCareUpdateSubtitle(update),
+      active: update.care_session_id ? activeSessionIds.has(update.care_session_id) : false,
+      time: update.created_at ? new Date(update.created_at).getTime() : 0,
+    }));
+
+    const completedItems = completedToday.map((session) => ({
+      id: `completed-${session.id}`,
+      title: `${getCareTypeLabel(session)} completed`,
+      subtitle: `Today at ${formatTime(session.check_out_at || session.ends_at || session.starts_at)}`,
+      active: false,
+      time: getStoryTimeValue(session),
+    }));
+
+    return [...activeItems, ...updateItems, ...completedItems]
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 6);
+  }, [activeSessions, completedToday, todayCareLogs]);
+
+  const summarySession = useMemo(() => {
+    const todayOrActive = [...activeSessions, ...todaySessions, ...completedToday]
       .filter((session) => session.summary?.trim())
-      .sort((a, b) => getStoryTimeValue(b) - getStoryTimeValue(a))[0] || null;
-  }, [sessions]);
+      .sort((a, b) => getStoryTimeValue(b) - getStoryTimeValue(a))[0];
+
+    return todayOrActive || null;
+  }, [activeSessions, completedToday, todaySessions]);
 
   async function handleCreateFamily() {
     setMessage("");
@@ -448,228 +506,132 @@ export default function DashboardPage() {
             {message && <p className="mt-4 rounded-2xl bg-blue-50 p-4 text-sm font-medium text-[#2563EB]">{message}</p>}
           </div>
         ) : (
-          <div className="space-y-6">
-            <section className="overflow-hidden rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-xl shadow-blue-100/45">
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-white px-4 py-2 text-xs font-semibold text-[#22C55E] shadow-sm">
-                    <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
-                    Everything is under control
-                  </div>
-                  <p className="mt-6 text-base font-semibold text-[#64748B]">{greeting}, {displayName}</p>
-                  <h1 className="mt-2 max-w-3xl text-4xl font-black tracking-tight text-[#0F172A] md:text-5xl">
-                    Your family care is on track today
-                  </h1>
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-[#64748B]">
-                    A calm view of care happening now, what is coming next, and the moments shared with your family.
-                  </p>
-                </div>
-                <button
-                  onClick={() => router.push("/sessions")}
-                  className="w-fit rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
-                >
-                  Open care sessions
-                </button>
-              </div>
+          <div className="mx-auto max-w-md space-y-5 md:max-w-2xl">
+            <section className="px-1 pt-2">
+              <h1 className="text-2xl font-black leading-tight text-[#0F172A] md:text-3xl">
+                {greeting}, {displayName} 👋
+              </h1>
+              <p className="mt-2 text-sm font-semibold text-[#64748B]">Everything is under control</p>
             </section>
 
-            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#64748B]">Today&apos;s Care</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Care happening now</h2>
-                  </div>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">
-                    {activeSessions.length > 0 ? "In progress" : "On track"}
-                  </span>
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-black text-[#0F172A]">Today&apos;s Care</h2>
+                <button
+                  onClick={() => router.push("/sessions")}
+                  className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#2563EB] transition hover:bg-blue-100"
+                >
+                  See all
+                </button>
+              </div>
+
+              {todaySessions.length === 0 ? (
+                <div className="mt-4 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-6 text-center">
+                  <p className="font-semibold text-[#0F172A]">No care scheduled today.</p>
+                  <p className="mt-2 text-sm leading-6 text-[#64748B]">Scheduled care will appear here.</p>
                 </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {todaySessions.map((session) => {
+                    const dependent = dependentById[session.dependent_id];
+                    const config = dependent ? typeConfig[dependent.type] : null;
+                    const caregiverName = session.caregiver_name?.trim() || "Caregiver";
 
-                {todaySessions.length === 0 ? (
-                  <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-xl font-black text-[#2563EB] shadow-sm">
-                      OK
-                    </div>
-                    <p className="mt-4 font-semibold text-[#0F172A]">No active care right now.</p>
-                    <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                      Upcoming care will appear here as soon as it is scheduled.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-6 space-y-3">
-                    {todaySessions.map((session) => {
-                      const dependent = dependentById[session.dependent_id];
-                      const config = dependent ? typeConfig[dependent.type] : null;
-                      const caregiverName = session.caregiver_name?.trim() || "Caregiver";
-
-                      return (
-                        <article
-                          key={session.id}
-                          className="rounded-[28px] border border-blue-100 bg-[#FFFFFF] p-4 shadow-sm transition hover:shadow-lg hover:shadow-blue-100/50"
-                        >
-                          <div className="flex items-start gap-4">
-                            {dependent?.photo_url ? (
-                              <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-blue-50" />
-                            ) : (
-                              <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] text-lg font-black ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
-                                {config?.icon || "C"}
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="truncate text-base font-black text-[#0F172A]">
-                                  {dependent?.name || "Loved one"}
-                                </h3>
-                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[session.status]}`}>
-                                  {session.status}
-                                </span>
-                              </div>
-                              <p className="mt-1 text-sm font-semibold text-[#64748B]">
-                                Care by {caregiverName}
-                              </p>
-                              <p className="mt-1 text-sm text-[#64748B]">{formatSessionTime(session)}</p>
-                            </div>
+                    return (
+                      <article
+                        key={session.id}
+                        className="flex items-center gap-3 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-3 shadow-sm"
+                      >
+                        {dependent?.photo_url ? (
+                          <img
+                            src={dependent.photo_url}
+                            alt={dependent.name}
+                            className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-blue-50"
+                          />
+                        ) : (
+                          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
+                            {dependent ? <DependentTypeIcon type={dependent.type} /> : <span className="text-sm font-black">C</span>}
                           </div>
-                          <button
-                            onClick={() => router.push("/sessions")}
-                            className="mt-4 rounded-full bg-blue-50 px-4 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-blue-100"
-                          >
-                            Open session
-                          </button>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+                        )}
 
-              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-                <p className="text-sm font-semibold text-[#64748B]">Live Status</p>
-                <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Is everything okay?</h2>
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  {[
-                    { label: "Active now", value: activeSessions.length, color: "text-[#22C55E]" },
-                    { label: "Upcoming", value: upcomingSessions.length, color: "text-[#2563EB]" },
-                    { label: "Moments today", value: momentsToday.length, color: "text-cyan-700" },
-                    { label: "Completed", value: completedToday.length, color: "text-slate-700" },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-[24px] bg-[#F8FAFC] p-4 shadow-sm ring-1 ring-blue-100/70">
-                      <p className={`text-3xl font-black ${item.color}`}>{item.value}</p>
-                      <p className="mt-1 text-xs font-semibold text-[#64748B]">{item.label}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="truncate text-sm font-black text-[#0F172A]">
+                              {dependent?.name || "Loved one"}
+                            </h3>
+                            {dependent && (
+                              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${typeConfig[dependent.type].chip}`}>
+                                <DependentTypeIcon type={dependent.type} />
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 truncate text-sm font-semibold text-[#0F172A]">
+                            {getCareTypeLabel(session)}
+                          </p>
+                          <p className="mt-1 truncate text-xs font-medium text-[#64748B]">
+                            {caregiverName} · {formatTime(session.starts_at || session.check_in_at)}
+                          </p>
+                        </div>
+
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[session.status]}`}>
+                          {session.status}
+                        </span>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-black text-[#0F172A]">Live Status</h2>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#22C55E]">
+                  All good
+                </span>
+              </div>
+
+              {liveStatusItems.length === 0 ? (
+                <div className="mt-4 rounded-[24px] bg-[#F8FAFC] p-5">
+                  <p className="font-semibold text-[#0F172A]">Nothing active right now.</p>
+                  <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                    Care updates will appear here as the day unfolds.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {liveStatusItems.map((item) => (
+                    <div key={item.id} className="flex gap-3">
+                      <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${item.active ? "bg-[#22C55E]" : "bg-emerald-200"}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
+                        <p className="mt-1 text-xs font-medium leading-5 text-[#64748B]">{item.subtitle}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </section>
-            </div>
+              )}
+            </section>
 
-            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-              <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[#64748B]">Latest Moments</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Shared with the family</h2>
-                  </div>
+            <section className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-5 shadow-lg shadow-blue-100/40">
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-white text-sm font-black text-[#2563EB] shadow-sm">
+                  AI
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-black text-[#0F172A]">AI Summary</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                    {summarySession?.summary?.trim() || "AI will summarize today’s care once updates are added."}
+                  </p>
                   <button
-                    onClick={() => router.push("/photos")}
-                    className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-blue-50"
+                    onClick={() => router.push("/ai-summary")}
+                    className="mt-4 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100 transition hover:bg-[#1D4ED8]"
                   >
-                    View moments
+                    Open AI Summary
                   </button>
                 </div>
-
-                {latestMoments.length === 0 ? (
-                  <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-lg font-black text-[#2563EB] shadow-sm">
-                      M
-                    </div>
-                    <p className="mt-4 font-semibold text-[#0F172A]">No moments shared yet.</p>
-                    <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                      When caregivers share photos, they will appear here.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                    {latestMoments.map((photo) => {
-                      const dependent = photo.dependent_id ? dependentById[photo.dependent_id] : null;
-                      const session = photo.care_session_id ? sessionById[photo.care_session_id] : null;
-                      const caregiverName = session?.caregiver_name?.trim() || "Caregiver";
-
-                      return (
-                        <article key={photo.id} className="overflow-hidden rounded-[28px] border border-blue-100 bg-[#FFFFFF] shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-100/50">
-                          <button
-                            onClick={() => router.push("/photos")}
-                            className="block w-full text-left"
-                          >
-                            <div className="relative h-44 overflow-hidden bg-blue-50">
-                              {photo.url ? (
-                                <img src={photo.url} alt={photo.caption || "Care moment"} className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-blue-50 text-sm font-bold text-[#2563EB]">
-                                  Moment
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0F172A]/70 to-transparent p-4 pt-10">
-                                <p className="text-xs font-bold text-white">
-                                  Shared by {caregiverName}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="p-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <p className="line-clamp-2 text-base font-black leading-6 text-[#0F172A]">
-                                  {photo.caption || "A care moment was shared."}
-                                </p>
-                                <p className="shrink-0 text-xs font-semibold text-[#64748B]">
-                                  {formatTime(photo.created_at)}
-                                </p>
-                              </div>
-                              <p className="mt-3 text-xs font-bold text-[#22C55E]">
-                                Shared by {caregiverName}
-                              </p>
-                              <p className="mt-1 text-xs font-semibold text-[#64748B]">
-                                {dependent?.name || "Family care"}{session?.title ? ` - ${session.title}` : ""}
-                              </p>
-                            </div>
-                          </button>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-
-              <section className="rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-lg shadow-blue-100/40">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-white text-lg font-black text-[#2563EB] shadow-sm">
-                    AI
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[#64748B]">AI Daily Story Preview</p>
-                    <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Today&apos;s story</h2>
-                    {latestStorySession?.summary ? (
-                      <>
-                        <p className="mt-3 text-sm leading-7 text-[#0F172A]">
-                          {latestStorySession.summary}
-                        </p>
-                        <p className="mt-3 text-xs font-semibold text-[#64748B]">
-                          {dependentById[latestStorySession.dependent_id]?.name || "Family care"}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="mt-3 text-sm leading-7 text-[#64748B]">
-                        Your daily story will appear here after care updates are added.
-                      </p>
-                    )}
-                    <button
-                      onClick={() => router.push("/sessions")}
-                      className="mt-5 rounded-full bg-[#2563EB] px-5 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-100"
-                    >
-                      Open Daily Story
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </div>
+              </div>
+            </section>
           </div>
         )}
       </section>
