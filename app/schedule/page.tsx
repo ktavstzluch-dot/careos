@@ -40,20 +40,18 @@ const typeConfig: Record<
   DependentType,
   {
     label: string;
-    icon: string;
     avatarClass: string;
     badgeClass: string;
     eventTitle: string;
     caregiver: string;
     time: string;
-    status: "Confirmed" | "Pending";
+    status: "Active" | "Confirmed" | "Pending" | "Completed";
   }
 > = {
   child: {
     label: "Child",
-    icon: "👶",
-    avatarClass: "bg-blue-50 text-[#2563EB]",
-    badgeClass: "bg-blue-50 text-[#2563EB]",
+    avatarClass: "bg-violet-50 text-violet-700",
+    badgeClass: "bg-violet-50 text-violet-700",
     eventTitle: "Nanny Visit",
     caregiver: "Anna Johnson",
     time: "3:00 PM – 7:00 PM",
@@ -61,7 +59,6 @@ const typeConfig: Record<
   },
   pet: {
     label: "Pet",
-    icon: "🐾",
     avatarClass: "bg-emerald-50 text-[#22C55E]",
     badgeClass: "bg-emerald-50 text-[#22C55E]",
     eventTitle: "Dog Walk",
@@ -71,15 +68,71 @@ const typeConfig: Record<
   },
   elder: {
     label: "Elder",
-    icon: "🧓",
-    avatarClass: "bg-violet-50 text-violet-700",
-    badgeClass: "bg-violet-50 text-violet-700",
+    avatarClass: "bg-blue-50 text-[#2563EB]",
+    badgeClass: "bg-blue-50 text-[#2563EB]",
     eventTitle: "Care Visit",
     caregiver: "Sophie Martin",
     time: "7:00 PM – 8:00 PM",
     status: "Pending",
   },
 };
+
+const statusConfig: Record<
+  "Active" | "Confirmed" | "Pending" | "Completed",
+  {
+    dotClass: string;
+    badgeClass: string;
+  }
+> = {
+  Active: {
+    dotClass: "bg-[#22C55E]",
+    badgeClass: "bg-emerald-50 text-[#16A34A]",
+  },
+  Confirmed: {
+    dotClass: "bg-[#22C55E]",
+    badgeClass: "bg-emerald-50 text-[#16A34A]",
+  },
+  Pending: {
+    dotClass: "bg-amber-400",
+    badgeClass: "bg-amber-50 text-amber-600",
+  },
+  Completed: {
+    dotClass: "bg-slate-300",
+    badgeClass: "bg-slate-50 text-[#64748B]",
+  },
+};
+
+function DependentTypeIcon({ type }: { type: DependentType }) {
+  if (type === "pet") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M8.5 10.5c1.1 0 2-1.2 2-2.7s-.9-2.8-2-2.8-2 1.2-2 2.8.9 2.7 2 2.7Z" />
+        <path d="M15.5 10.5c1.1 0 2-1.2 2-2.7S16.6 5 15.5 5s-2 1.2-2 2.8.9 2.7 2 2.7Z" />
+        <path d="M5.8 14.5c.9 0 1.7-1 1.7-2.2S6.7 10 5.8 10s-1.7 1-1.7 2.3.8 2.2 1.7 2.2Z" />
+        <path d="M18.2 14.5c.9 0 1.7-1 1.7-2.2s-.8-2.3-1.7-2.3-1.7 1-1.7 2.3.8 2.2 1.7 2.2Z" />
+        <path d="M7.8 17.5c0-2.1 1.9-3.7 4.2-3.7s4.2 1.6 4.2 3.7c0 1.2-.8 2-1.9 2-.9 0-1.4-.5-2.3-.5s-1.4.5-2.3.5c-1.1 0-1.9-.8-1.9-2Z" />
+      </svg>
+    );
+  }
+
+  if (type === "elder") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+        <path d="M4.5 20c1.4-3.2 4-5 7.5-5s6.1 1.8 7.5 5" />
+        <path d="M17.5 14.5 19 20" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+      <path d="M5 20c1.2-3.5 3.5-5.2 7-5.2s5.8 1.7 7 5.2" />
+      <path d="M8 12.5c.9 1 2.2 1.5 4 1.5s3.1-.5 4-1.5" />
+    </svg>
+  );
+}
 
 function CareOSLogo() {
   return (
@@ -265,9 +318,9 @@ export default function SchedulePage() {
                   ←
                 </button>
                 <p className="text-sm font-semibold text-[#64748B]">Schedule</p>
-                <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care calendar</h1>
+                <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Today&apos;s Care Plan</h1>
                 <p className="mt-3 max-w-xl text-base leading-7 text-[#64748B]">
-                  Upcoming care visits for kids, pets and elders.
+                  A simple plan for who is cared for, who is caring, and when care happens today.
                 </p>
               </div>
 
@@ -294,9 +347,12 @@ export default function SchedulePage() {
 
             <div className="mt-8 rounded-[28px] bg-[#F8FAFC] p-5">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-black text-[#0F172A]">
-                  {new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date())}
-                </h2>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#64748B]">This week</p>
+                  <h2 className="mt-1 text-lg font-black text-[#0F172A]">
+                    {new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date())}
+                  </h2>
+                </div>
                 <span className="text-lg text-[#64748B]">›</span>
               </div>
 
@@ -315,19 +371,12 @@ export default function SchedulePage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[24px] bg-blue-50 p-4">
-                <p className="text-3xl font-black text-[#2563EB]">{visibleDependents.length}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">Events today</p>
-              </div>
-              <div className="rounded-[24px] bg-emerald-50 p-4">
-                <p className="text-3xl font-black text-[#22C55E]">{visibleDependents.filter((item) => item.type !== "elder").length}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">Confirmed</p>
-              </div>
-              <div className="rounded-[24px] bg-violet-50 p-4">
-                <p className="text-3xl font-black text-violet-700">{visibleDependents.filter((item) => item.type === "elder").length}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">Pending</p>
-              </div>
+            <div className="mt-6 rounded-[28px] border border-blue-100 bg-gradient-to-br from-blue-50 to-emerald-50 p-5">
+              <p className="text-sm font-black text-[#0F172A]">Care focus</p>
+              <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                Today&apos;s plan is organized around people first, so the family can quickly see who is cared for,
+                who is with them, and when care is happening.
+              </p>
             </div>
           </section>
 
@@ -335,7 +384,7 @@ export default function SchedulePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-[#64748B]">Today</p>
-                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Upcoming visits</h2>
+                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today&apos;s Care Plan</h2>
               </div>
               <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                 {family?.name}
@@ -344,14 +393,22 @@ export default function SchedulePage() {
 
             {visibleDependents.length === 0 ? (
               <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
-                <div className="text-5xl">📅</div>
-                <p className="mt-4 font-semibold text-[#0F172A]">No visits scheduled.</p>
-                <p className="mt-2 text-sm text-[#64748B]">Add a child, pet or elder to schedule care.</p>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#2563EB] shadow-sm">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M8 2v4" />
+                    <path d="M16 2v4" />
+                    <path d="M3.5 9.5h17" />
+                    <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+                  </svg>
+                </div>
+                <p className="mt-4 font-semibold text-[#0F172A]">No care scheduled today.</p>
+                <p className="mt-2 text-sm text-[#64748B]">Scheduled care will appear here.</p>
               </div>
             ) : (
               <div className="mt-7 space-y-4">
                 {visibleDependents.map((dependent) => {
                   const config = typeConfig[dependent.type];
+                  const status = statusConfig[config.status];
 
                   return (
                     <article
@@ -362,53 +419,43 @@ export default function SchedulePage() {
                         {dependent.photo_url ? (
                           <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 rounded-[22px] object-cover" />
                         ) : (
-                          <div className={`flex h-16 w-16 items-center justify-center rounded-[22px] text-3xl ${config.avatarClass}`}>
-                            {config.icon}
+                          <div className={`flex h-16 w-16 items-center justify-center rounded-[22px] ${config.avatarClass}`}>
+                            <DependentTypeIcon type={dependent.type} />
                           </div>
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-lg font-black text-[#0F172A]">{config.eventTitle}</h3>
-                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.badgeClass}`}>
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-black text-[#0F172A]">{dependent.name}</h3>
+                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.badgeClass}`}>
+                                  <DependentTypeIcon type={dependent.type} />
                                   {config.label}
                                 </span>
                               </div>
-                              <p className="mt-1 text-sm font-semibold text-[#0F172A]">{config.time}</p>
-                              <p className="mt-1 text-sm text-[#64748B]">
-                                Caregiver: {config.caregiver}
-                              </p>
-                              <p className="mt-1 text-sm text-[#64748B]">
-                                For: {dependent.name}
-                              </p>
+                              <p className="mt-1 text-sm font-semibold text-[#0F172A]">{config.eventTitle}</p>
                             </div>
 
                             <div className="text-right">
                               <div
-                                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                                  config.status === "Confirmed"
-                                    ? "bg-emerald-50 text-[#22C55E]"
-                                    : "bg-orange-50 text-orange-500"
-                                }`}
+                                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${status.badgeClass}`}
                               >
-                                <span className={`h-2 w-2 rounded-full ${config.status === "Confirmed" ? "bg-[#22C55E]" : "bg-orange-400"}`} />
+                                <span className={`h-2 w-2 rounded-full ${status.dotClass}`} />
                                 {config.status}
                               </div>
                             </div>
                           </div>
 
-                          <div className="mt-5 flex flex-wrap gap-2">
-                            <button className="rounded-full bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-100">
-                              Message
-                            </button>
-                            <button className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B] transition hover:bg-blue-50 hover:text-[#2563EB]">
-                              View tasks
-                            </button>
-                            <button className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B] transition hover:bg-blue-50 hover:text-[#2563EB]">
-                              Repeat weekly
-                            </button>
+                          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-[22px] bg-[#F8FAFC] p-4">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Who is caring</p>
+                              <p className="mt-1 text-sm font-black text-[#0F172A]">{config.caregiver}</p>
+                            </div>
+                            <div className="rounded-[22px] bg-[#F8FAFC] p-4">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">When</p>
+                              <p className="mt-1 text-sm font-black text-[#0F172A]">{config.time}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
