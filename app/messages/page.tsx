@@ -447,7 +447,11 @@ export default function MessagesPage() {
               <button
                 key={item.label}
                 onClick={() => router.push(item.href)}
-                className="rounded-full px-4 py-2 text-xs font-semibold text-[#64748B] transition hover:bg-white hover:text-[#2563EB]"
+                className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  item.label === "Messages"
+                    ? "bg-[#2563EB] text-white shadow-sm shadow-blue-200"
+                    : "text-[#64748B] hover:bg-white hover:text-[#2563EB]"
+                }`}
               >
                 {item.label}
               </button>
@@ -706,7 +710,9 @@ export default function MessagesPage() {
             <button
               key={item.label}
               onClick={() => router.push(item.href)}
-              className="rounded-2xl px-2 py-2 text-center text-[11px] font-semibold text-[#64748B]"
+              className={`rounded-2xl px-2 py-2 text-center text-[11px] font-semibold ${
+                item.label === "Messages" ? "bg-blue-50 text-[#2563EB]" : "text-[#64748B]"
+              }`}
             >
               <div className="text-lg leading-5">{item.icon}</div>
               <div className="mt-1">{item.label}</div>
