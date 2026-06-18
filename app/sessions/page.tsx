@@ -827,7 +827,7 @@ export default function CareSessionsPage() {
         { id: string; time: string | null; caption: string; urls: string[] }
       >
     >((reports, photo) => {
-      const caption = photo.caption?.trim() || "A new photo report was shared.";
+      const caption = photo.caption?.trim() || "A new moment was shared.";
       const reportMinute = photo.created_at
         ? new Date(photo.created_at).toISOString().slice(0, 16)
         : "unknown-time";
@@ -848,11 +848,11 @@ export default function CareSessionsPage() {
         id: report.id,
         time: report.time,
         icon: "📷",
-        title: "Photo Report",
+        title: "Moment",
         note: report.caption,
         detail:
           report.urls.length > 1
-            ? `${report.urls.length} photos uploaded`
+            ? `${report.urls.length} moments shared`
             : undefined,
         identity: getCareStoryIdentity("photo", caregiverName),
         photoUrls: report.urls,
@@ -1001,7 +1001,7 @@ export default function CareSessionsPage() {
       selectedSession.status === "cancelled"
     ) {
       setMessage(
-        "This session is completed. Start a new session to upload photos.",
+        "This session is completed. Start a new session to share moments.",
       );
       event.target.value = "";
       return;
@@ -1124,7 +1124,7 @@ export default function CareSessionsPage() {
     setCareLogs([data as CareLog, ...careLogs]);
     setActiveActionType(null);
     setActionValue("");
-    setMessage(`${event.title} added to session timeline.`);
+    setMessage(`${event.title} added to Care Story.`);
   }
 
   function handleSessionAction(event: (typeof quickEvents)[number]) {
@@ -1174,7 +1174,7 @@ export default function CareSessionsPage() {
       <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
           <p className="text-sm font-medium text-[#64748B]">
-            Loading Care Sessions...
+            Loading care...
           </p>
         </div>
       </main>
@@ -1244,14 +1244,14 @@ export default function CareSessionsPage() {
               ←
             </button>
             <p className="text-sm font-semibold text-[#64748B]">
-              Care Sessions
+              Live Session
             </p>
             <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">
-              Live care center
+              Live Session
             </h1>
             <p className="mt-3 text-base leading-7 text-[#64748B]">
-              Start a care session, add one-tap updates, and keep the full
-              timeline in one place.
+              Start care, share updates, and keep the family close to every
+              moment.
             </p>
 
             <div className="mt-7 grid grid-cols-3 gap-3">
@@ -1283,7 +1283,7 @@ export default function CareSessionsPage() {
 
             <div className="mt-7 rounded-[28px] bg-[#F8FAFC] p-5">
               <p className="text-sm font-semibold text-[#64748B]">
-                Create session
+                Plan care
               </p>
               <div className="mt-4 grid gap-3">
                 <select
@@ -1358,11 +1358,11 @@ export default function CareSessionsPage() {
                 <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                   <div className="text-5xl">🫶</div>
                   <p className="mt-4 font-semibold text-[#0F172A]">
-                    No care sessions yet.
+                    No care planned yet.
                   </p>
                   <p className="mt-2 text-sm text-[#64748B]">
-                    Create the first session to track start, end and care
-                    timeline.
+                    Create the first session to share care updates and build
+                    today&apos;s story.
                   </p>
                 </div>
               ) : (
@@ -1404,7 +1404,7 @@ export default function CareSessionsPage() {
                                 {formatDateTime(session.starts_at)}
                               </p>
                               <p className="mt-2 text-xs text-[#64748B]">
-                                {stats.logs} logs · {stats.photos} photos
+                                {stats.logs} updates · {stats.photos} moments
                               </p>
                             </div>
                           </div>
@@ -1566,14 +1566,14 @@ export default function CareSessionsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-[#64748B]">
-                        Session Actions
+                        Care Actions
                       </p>
                       <h3 className="mt-1 text-xl font-black text-[#0F172A]">
                         Add updates during care
                       </h3>
                     </div>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#64748B]">
-                      {selectedLogs.length} logs
+                      {selectedLogs.length} updates
                     </span>
                   </div>
                   <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -1601,10 +1601,10 @@ export default function CareSessionsPage() {
                     >
                       <div className="text-2xl">📷</div>
                       <p className="mt-3 text-sm font-black text-[#0F172A]">
-                        Photo
+                        Moment
                       </p>
                       <p className="mt-1 text-xs text-[#64748B]">
-                        Upload report
+                        Share Moment
                       </p>
                       <input
                         type="file"
@@ -1697,7 +1697,7 @@ export default function CareSessionsPage() {
                       Care Log
                     </p>
                     <p className="mt-1 text-xs text-[#64748B]">
-                      Detailed updates
+                      Care updates
                     </p>
                   </button>
                   <button
@@ -1706,10 +1706,10 @@ export default function CareSessionsPage() {
                   >
                     <div className="text-2xl">📷</div>
                     <p className="mt-3 text-sm font-black text-[#0F172A]">
-                      Photos
+                      Moments
                     </p>
                     <p className="mt-1 text-xs text-[#64748B]">
-                      {getSessionStats(selectedSession.id).photos} photos
+                      {getSessionStats(selectedSession.id).photos} moments
                     </p>
                   </button>
                   <button
