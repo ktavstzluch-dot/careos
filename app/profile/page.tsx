@@ -383,7 +383,6 @@ export default function ProfilePage() {
 
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
               <p className="text-sm font-semibold text-[#64748B]">Contact Information</p>
-              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Contact</h2>
 
               <div className="mt-5 space-y-3">
                 <div className="rounded-[24px] bg-[#F8FAFC] p-4">
@@ -401,7 +400,6 @@ export default function ProfilePage() {
 
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
               <p className="text-sm font-semibold text-[#64748B]">Home Address</p>
-              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Home Address</h2>
 
               <div className="mt-5 rounded-[24px] bg-[#F8FAFC] p-4">
                 {addressLines.length > 0 ? (
@@ -420,7 +418,6 @@ export default function ProfilePage() {
 
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
               <p className="text-sm font-semibold text-[#64748B]">CareOS Health</p>
-              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Workspace status</h2>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <div className="rounded-[24px] bg-[#F8FAFC] p-4">
@@ -448,7 +445,6 @@ export default function ProfilePage() {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-[#64748B]">My Family</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Dependents</h2>
                 </div>
                 <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                   {family?.name || "Family"}
@@ -527,7 +523,6 @@ export default function ProfilePage() {
             </section>
 
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-              <p className="text-sm font-semibold text-[#64748B]">Quick Access</p>
               <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Family tools</h2>
 
               <div className="mt-6 grid gap-3 md:grid-cols-2">
