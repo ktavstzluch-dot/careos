@@ -605,6 +605,7 @@ export default function CareSessionsPage() {
   const [nowMs, setNowMs] = useState(Date.now());
   const [activeActionType, setActiveActionType] = useState<string | null>(null);
   const [actionValue, setActionValue] = useState("");
+  const [careStoryExpanded, setCareStoryExpanded] = useState(false);
 
   async function loadSessions() {
     const { data: userData } = await supabase.auth.getUser();
@@ -878,6 +879,16 @@ export default function CareSessionsPage() {
         (b.time ? new Date(b.time).getTime() : 0),
     );
   }, [selectedDependent?.name, selectedLogs, selectedPhotos, selectedSession]);
+  const careStoryPreviewLimit = 3;
+  const visibleCareStoryItems = careStoryExpanded
+    ? sessionTimeline
+    : sessionTimeline.slice(-careStoryPreviewLimit);
+  const hasHiddenCareStoryItems =
+    sessionTimeline.length > careStoryPreviewLimit;
+
+  useEffect(() => {
+    setCareStoryExpanded(false);
+  }, [selectedSessionId]);
 
   const activeSessions = sessions.filter(
     (session) => session.status === "active",
@@ -1925,29 +1936,29 @@ export default function CareSessionsPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="mt-7 rounded-[30px] bg-gradient-to-b from-blue-50/80 to-emerald-50/70 p-4 sm:p-5">
-                    <div className="space-y-5">
-                      {sessionTimeline.map((item, index) => {
+                  <div className="mt-6 rounded-[30px] bg-gradient-to-b from-blue-50/80 to-emerald-50/70 p-3 sm:p-4">
+                    <div className="space-y-4">
+                      {visibleCareStoryItems.map((item, index) => {
                         const styles = careStoryColorStyles[item.color];
                         return (
                           <article
                             key={`${item.kind}-${item.id}`}
-                            className="relative flex gap-4"
+                            className="relative flex gap-3 sm:gap-4"
                           >
                             <div className="flex flex-col items-center">
                               <div
-                                className={`z-10 flex h-14 w-14 items-center justify-center rounded-[22px] text-2xl shadow-sm ring-1 ${styles.icon}`}
+                                className={`z-10 flex h-12 w-12 items-center justify-center rounded-[20px] text-xl shadow-sm ring-1 sm:h-14 sm:w-14 sm:rounded-[22px] sm:text-2xl ${styles.icon}`}
                               >
                                 {item.icon}
                               </div>
-                              {index < sessionTimeline.length - 1 && (
+                              {index < visibleCareStoryItems.length - 1 && (
                                 <div
                                   className={`mt-2 h-full min-h-10 w-1 rounded-full bg-gradient-to-b ${styles.connector}`}
                                 />
                               )}
                             </div>
                             <div
-                              className={`relative flex-1 rounded-[30px] border p-5 shadow-sm ${styles.card} sm:p-6`}
+                              className={`relative flex-1 rounded-[28px] border p-4 shadow-sm ${styles.card} sm:p-5`}
                             >
                               <div className="flex flex-wrap items-start justify-between gap-3">
                                 <p className="text-lg font-black text-[#0F172A]">
@@ -1970,7 +1981,7 @@ export default function CareSessionsPage() {
                                     <img
                                       src={item.photoUrls[0]}
                                       alt={item.photoAlt || "Moment"}
-                                      className="h-44 w-full object-cover sm:h-56"
+                                      className="h-36 w-full object-cover sm:h-44"
                                     />
                                   </a>
                                 )}
@@ -1999,6 +2010,21 @@ export default function CareSessionsPage() {
                         );
                       })}
                     </div>
+                    {hasHiddenCareStoryItems && (
+                      <div className="mt-5 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCareStoryExpanded((expanded) => !expanded)
+                          }
+                          className="rounded-full border border-blue-100 bg-white/85 px-5 py-2 text-xs font-black text-[#2563EB] shadow-sm shadow-blue-100 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
+                        >
+                          {careStoryExpanded
+                            ? "Show less"
+                            : "View full care story"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
