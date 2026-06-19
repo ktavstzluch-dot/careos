@@ -545,8 +545,8 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm font-semibold text-[#64748B] md:text-base">Everything is under control</p>
             </section>
 
-            <div className="grid gap-5 md:grid-cols-[1.12fr_0.88fr] md:items-start">
-            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[340px] md:p-6">
+            <div className="grid gap-5 md:grid-cols-[1.12fr_0.88fr] md:items-stretch">
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:h-full md:min-h-[340px] md:p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-base font-black text-[#0F172A] md:text-xl">Today&apos;s Care</h2>
                 <button
@@ -632,7 +632,7 @@ export default function DashboardPage() {
               )}
             </section>
 
-            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[340px] md:p-6">
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:h-full md:min-h-[340px] md:p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-base font-black text-[#0F172A] md:text-xl">Live Status</h2>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#22C55E]">
