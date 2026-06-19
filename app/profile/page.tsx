@@ -272,9 +272,13 @@ export default function ProfilePage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
-                {initials}
-              </div>
+              {ownerProfile.avatarUrl ? (
+                <img src={ownerProfile.avatarUrl} alt={displayName} className="h-10 w-10 rounded-2xl object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
+                  {initials}
+                </div>
+              )}
               <div className="hidden text-left sm:block">
                 <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
                 <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>

@@ -9,7 +9,7 @@ type Family = {
   name: string;
 };
 
-const PROFILE_PHOTO_BUCKET = "care-photos";
+const PROFILE_PHOTO_BUCKETS = ["child-photos", "care-photos"];
 
 const navItems = [
   { label: "Home", icon: "\u2302", href: "/dashboard" },
@@ -44,6 +44,35 @@ function getDisplayName(email?: string) {
   const first = email.split("@")[0];
   if (first.toLowerCase() === "mail") return "Tigran";
   return first.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function isMissingBucketError(error: { message?: string }) {
+  const message = error.message?.toLowerCase() || "";
+  return message.includes("bucket not found") || message.includes("bucket") && message.includes("not found");
+}
+
+async function uploadProfilePhoto(file: File, storagePath: string) {
+  let lastError: { message?: string } | null = null;
+
+  for (const bucket of PROFILE_PHOTO_BUCKETS) {
+    const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (!error) {
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+      return publicUrlData.publicUrl;
+    }
+
+    lastError = error;
+
+    if (!isMissingBucketError(error)) {
+      throw error;
+    }
+  }
+
+  throw new Error(lastError?.message || "Profile photo bucket was not found.");
 }
 
 export default function EditProfilePage() {
@@ -153,24 +182,16 @@ export default function EditProfilePage() {
       const safeName = avatarFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
       const storagePath = `${family.id}/owner/${userData.user.id}/profile-${Date.now()}-${safeName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(PROFILE_PHOTO_BUCKET)
-        .upload(storagePath, avatarFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
+      try {
+        nextAvatarUrl = await uploadProfilePhoto(avatarFile, storagePath);
+      } catch (error) {
         setSaving(false);
-        setMessage(uploadError.message);
+        setMessage(error instanceof Error ? error.message : "Profile photo could not be uploaded.");
         return;
       }
-
-      const { data: publicUrlData } = supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(storagePath);
-      nextAvatarUrl = publicUrlData.publicUrl;
     }
 
-    const { error: authError } = await supabase.auth.updateUser({
+    const { data: authData, error: authError } = await supabase.auth.updateUser({
       data: {
         full_name: nextDisplayName,
         display_name: nextDisplayName,
@@ -200,12 +221,23 @@ export default function EditProfilePage() {
       return;
     }
 
-    setFamily(data as Family);
+    const nextMetadata = authData.user?.user_metadata || {};
+    const savedDisplayName =
+      (typeof nextMetadata.full_name === "string" && nextMetadata.full_name.trim()) ||
+      (typeof nextMetadata.display_name === "string" && nextMetadata.display_name.trim()) ||
+      nextDisplayName;
+    const savedAvatarUrl = typeof nextMetadata.avatar_url === "string" ? nextMetadata.avatar_url : nextAvatarUrl;
+
+    setFamily((data as Family) || { ...family, name: nextFamilyName });
+    setDisplayName(savedDisplayName);
     setFamilyName(nextFamilyName);
-    setAvatarUrl(nextAvatarUrl);
+    setAvatarUrl(savedAvatarUrl);
+    setGender(typeof nextMetadata.gender === "string" ? nextMetadata.gender : gender);
+    setDateOfBirth(typeof nextMetadata.date_of_birth === "string" ? nextMetadata.date_of_birth.slice(0, 10) : dateOfBirth);
     setAvatarFile(null);
     setAvatarPreview("");
     setMessage("Profile updated.");
+    await loadProfile();
   }
 
   async function handleLogout() {
@@ -252,9 +284,13 @@ export default function EditProfilePage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
-                {initials}
-              </div>
+              {avatarSrc ? (
+                <img src={avatarSrc} alt={displayName} className="h-10 w-10 rounded-2xl object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
+                  {initials}
+                </div>
+              )}
               <div className="hidden text-left sm:block">
                 <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
                 <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
