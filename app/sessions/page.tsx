@@ -1916,9 +1916,12 @@ export default function CareSessionsPage() {
                 {sessionTimeline.length === 0 ? (
                   <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                     <div className="text-5xl">🫶</div>
-                    <p className="mt-4 font-semibold text-[#0F172A]">
-                      Your care story will appear here as updates are added
-                      during the session.
+                    <p className="mt-4 text-lg font-black text-[#0F172A]">
+                      No care updates yet.
+                    </p>
+                    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#64748B]">
+                      As updates are shared, today&apos;s story will appear
+                      here.
                     </p>
                   </div>
                 ) : (
@@ -1944,43 +1947,51 @@ export default function CareSessionsPage() {
                               )}
                             </div>
                             <div
-                              className={`relative flex-1 rounded-[26px] border p-5 pr-24 shadow-sm ${styles.card}`}
+                              className={`relative flex-1 rounded-[30px] border p-5 shadow-sm ${styles.card} sm:p-6`}
                             >
-                              <time
-                                className={`absolute right-5 top-5 rounded-full px-3 py-1 text-xs font-bold ${styles.time}`}
-                              >
-                                {formatClockTime(item.time)}
-                              </time>
-                              <div>
-                                <p className="text-base font-black text-[#0F172A]">
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <p className="text-lg font-black text-[#0F172A]">
                                   {item.title}
                                 </p>
-                                <p className="mt-2 text-sm font-semibold leading-6 text-[#0F172A]">
-                                  {item.note}
-                                </p>
-                                {item.detail && (
-                                  <p className="mt-1 text-sm font-black text-[#64748B]">
-                                    {item.detail}
-                                  </p>
-                                )}
-                                {item.identity && (
-                                  <p className="mt-2 text-xs font-bold text-[#64748B]">
-                                    {item.identity}
-                                  </p>
-                                )}
+                                <time
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${styles.time}`}
+                                >
+                                  {formatClockTime(item.time)}
+                                </time>
+                              </div>
+                              <div className="mt-3">
                                 {item.photoUrls && item.photoUrls.length > 0 && (
                                   <a
                                     href={item.photoUrls[0]}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="mt-4 block w-fit overflow-hidden rounded-[22px] border border-white bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                                    className="block overflow-hidden rounded-[26px] border border-white bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                                   >
                                     <img
                                       src={item.photoUrls[0]}
                                       alt={item.photoAlt || "Moment"}
-                                      className="h-28 w-36 object-cover"
+                                      className="h-44 w-full object-cover sm:h-56"
                                     />
                                   </a>
+                                )}
+                                <p
+                                  className={`leading-6 text-[#0F172A] ${
+                                    item.photoUrls && item.photoUrls.length > 0
+                                      ? "mt-4 text-base font-black"
+                                      : "text-sm font-semibold"
+                                  }`}
+                                >
+                                  {item.note}
+                                </p>
+                                {item.detail && (
+                                  <p className="mt-2 text-sm font-black text-[#64748B]">
+                                    {item.detail}
+                                  </p>
+                                )}
+                                {item.identity && (
+                                  <p className="mt-4 inline-flex rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold text-[#64748B] ring-1 ring-white/80">
+                                    {item.identity}
+                                  </p>
                                 )}
                               </div>
                             </div>
