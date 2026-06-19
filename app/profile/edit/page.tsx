@@ -207,17 +207,32 @@ export default function EditProfilePage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { error, count } = await supabase
       .from("families")
-      .update({ name: nextFamilyName })
-      .eq("id", family.id)
-      .select("id, name")
-      .single();
-
-    setSaving(false);
+      .update({ name: nextFamilyName }, { count: "exact" })
+      .eq("id", family.id);
 
     if (error) {
-      setMessage(error.message);
+      setSaving(false);
+      setMessage("Family name could not be saved. Please try again.");
+      return;
+    }
+
+    if (count === 0) {
+      setSaving(false);
+      setMessage("Family name could not be saved. Please try again.");
+      return;
+    }
+
+    const { data: refreshedFamily, error: familyRefreshError } = await supabase
+      .from("families")
+      .select("id, name")
+      .eq("id", family.id)
+      .maybeSingle();
+
+    if (familyRefreshError) {
+      setSaving(false);
+      setMessage("Profile was saved, but the family details could not be refreshed.");
       return;
     }
 
@@ -228,7 +243,7 @@ export default function EditProfilePage() {
       nextDisplayName;
     const savedAvatarUrl = typeof nextMetadata.avatar_url === "string" ? nextMetadata.avatar_url : nextAvatarUrl;
 
-    setFamily((data as Family) || { ...family, name: nextFamilyName });
+    setFamily((refreshedFamily as Family) || { ...family, name: nextFamilyName });
     setDisplayName(savedDisplayName);
     setFamilyName(nextFamilyName);
     setAvatarUrl(savedAvatarUrl);
@@ -238,6 +253,7 @@ export default function EditProfilePage() {
     setAvatarPreview("");
     setMessage("Profile updated.");
     await loadProfile();
+    setSaving(false);
   }
 
   async function handleLogout() {
