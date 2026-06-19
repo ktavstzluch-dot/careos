@@ -579,8 +579,8 @@ export default function DashboardPage() {
                         )}
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="truncate text-base font-black text-[#0F172A]">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="min-w-0 text-base font-black leading-5 text-[#0F172A]">
                               {dependent?.name || "Loved one"}
                             </h3>
                             {dependent && (
@@ -589,11 +589,15 @@ export default function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="mt-1 truncate text-sm font-bold text-[#0F172A]">
+                          <p className="mt-1 text-sm font-bold leading-5 text-[#0F172A]">
                             {getCareTypeLabel(session)}
                           </p>
-                          <p className="mt-1 text-sm font-medium leading-5 text-[#64748B]">
-                            {caregiverName} · {formatTime(session.starts_at || session.check_in_at)}
+                          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm font-medium leading-5 text-[#64748B]">
+                            <span>{caregiverName}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="whitespace-nowrap">
+                              {formatTime(session.starts_at || session.check_in_at)}
+                            </span>
                           </p>
                         </div>
 
