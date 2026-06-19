@@ -532,7 +532,7 @@ export default function DashboardPage() {
                   <p className="mt-2 text-sm leading-6 text-[#64748B]">Scheduled care will appear here.</p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3 md:mt-6 xl:grid xl:grid-cols-2 xl:gap-3 xl:space-y-0">
+                <div className="mt-4 space-y-3 md:mt-6 2xl:grid 2xl:grid-cols-2 2xl:gap-3 2xl:space-y-0">
                   {todaySessions.map((session) => {
                     const dependent = dependentById[session.dependent_id];
                     const config = dependent ? typeConfig[dependent.type] : null;
@@ -541,7 +541,7 @@ export default function DashboardPage() {
                     return (
                       <article
                         key={session.id}
-                        className="flex items-center gap-3 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-3 shadow-sm md:p-4"
+                        className="flex items-start gap-3 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-3 shadow-sm md:p-4"
                       >
                         {dependent?.photo_url ? (
                           <img
@@ -569,12 +569,12 @@ export default function DashboardPage() {
                           <p className="mt-1 truncate text-sm font-semibold text-[#0F172A]">
                             {getCareTypeLabel(session)}
                           </p>
-                          <p className="mt-1 truncate text-xs font-medium text-[#64748B]">
+                          <p className="mt-1 text-xs font-medium leading-5 text-[#64748B]">
                             {caregiverName} · {formatTime(session.starts_at || session.check_in_at)}
                           </p>
                         </div>
 
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[session.status]}`}>
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[session.status]}`}>
                           {session.status}
                         </span>
                       </article>
