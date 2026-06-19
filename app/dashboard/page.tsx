@@ -357,9 +357,32 @@ export default function DashboardPage() {
       time: getStoryTimeValue(session),
     }));
 
-    return [...activeItems, ...updateItems, ...completedItems]
+    const groupedItems = [...activeItems, ...updateItems, ...completedItems]
       .sort((a, b) => b.time - a.time)
-      .slice(0, 6);
+      .reduce<
+        Array<{
+          id: string;
+          title: string;
+          subtitle: string;
+          active: boolean;
+          time: number;
+          count: number;
+        }>
+      >((items, item) => {
+        const existing = items.find((group) => group.title === item.title);
+
+        if (existing) {
+          existing.count += 1;
+          existing.active = existing.active || item.active;
+          existing.time = Math.max(existing.time, item.time);
+          return items;
+        }
+
+        items.push({ ...item, count: 1 });
+        return items;
+      }, []);
+
+    return groupedItems.slice(0, 6);
   }, [activeSessions, completedToday, todayCareLogs]);
 
   const summarySession = useMemo(() => {
@@ -514,8 +537,8 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm font-semibold text-[#64748B] md:text-base">Everything is under control</p>
             </section>
 
-            <div className="grid gap-5 md:grid-cols-[1.08fr_0.92fr] md:items-start">
-            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[360px] md:p-6">
+            <div className="grid gap-5 md:grid-cols-[1.12fr_0.88fr] md:items-start">
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[340px] md:p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-base font-black text-[#0F172A] md:text-xl">Today&apos;s Care</h2>
                 <button
@@ -541,23 +564,23 @@ export default function DashboardPage() {
                     return (
                       <article
                         key={session.id}
-                        className="flex items-start gap-3 rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-3 shadow-sm md:p-4"
+                        className="flex items-start gap-4 rounded-[26px] border border-blue-100 bg-[#FFFFFF] p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-100/50 md:p-5"
                       >
                         {dependent?.photo_url ? (
                           <img
                             src={dependent.photo_url}
                             alt={dependent.name}
-                            className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-blue-50"
+                            className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-blue-50"
                           />
                         ) : (
-                          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
+                          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
                             {dependent ? <DependentTypeIcon type={dependent.type} /> : <span className="text-sm font-black">C</span>}
                           </div>
                         )}
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="truncate text-sm font-black text-[#0F172A]">
+                            <h3 className="truncate text-base font-black text-[#0F172A]">
                               {dependent?.name || "Loved one"}
                             </h3>
                             {dependent && (
@@ -566,15 +589,15 @@ export default function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="mt-1 truncate text-sm font-semibold text-[#0F172A]">
+                          <p className="mt-1 truncate text-sm font-bold text-[#0F172A]">
                             {getCareTypeLabel(session)}
                           </p>
-                          <p className="mt-1 text-xs font-medium leading-5 text-[#64748B]">
+                          <p className="mt-1 text-sm font-medium leading-5 text-[#64748B]">
                             {caregiverName} · {formatTime(session.starts_at || session.check_in_at)}
                           </p>
                         </div>
 
-                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusStyles[session.status]}`}>
+                        <span className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold ${statusStyles[session.status]}`}>
                           {session.status}
                         </span>
                       </article>
@@ -584,7 +607,7 @@ export default function DashboardPage() {
               )}
             </section>
 
-            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[360px] md:p-6">
+            <section className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-lg shadow-blue-100/45 md:min-h-[340px] md:p-6">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-base font-black text-[#0F172A] md:text-xl">Live Status</h2>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#22C55E]">
@@ -600,12 +623,15 @@ export default function DashboardPage() {
                   </p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-4 md:mt-6">
+                <div className="mt-4 space-y-2.5 md:mt-5">
                   {liveStatusItems.map((item) => (
-                    <div key={item.id} className="flex gap-3 rounded-[20px] md:bg-[#F8FAFC] md:p-3">
-                      <span className={`mt-1.5 h-3 w-3 shrink-0 rounded-full ${item.active ? "bg-[#22C55E]" : "bg-emerald-200"}`} />
+                    <div key={item.id} className="flex gap-3 rounded-[18px] bg-[#F8FAFC] p-3">
+                      <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.active ? "bg-[#22C55E]" : "bg-emerald-200"}`} />
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-[#0F172A]">{item.title}</p>
+                        <p className="text-sm font-black text-[#0F172A]">
+                          {item.title}
+                          {item.count > 1 ? ` (${item.count} updates)` : ""}
+                        </p>
                         <p className="mt-1 text-xs font-medium leading-5 text-[#64748B]">{item.subtitle}</p>
                       </div>
                     </div>
