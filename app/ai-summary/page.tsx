@@ -58,7 +58,7 @@ const typeConfig: Record<
     avatar: "bg-blue-50 text-[#2563EB]",
     chip: "bg-blue-50 text-[#2563EB]",
     summary:
-      "CareOS reviewed today's care activity. Meals, rest, activities and caregiver notes are ready to be summarized into a clean family report.",
+      "CareOS gathered today's care moments. Meals, rest, activities and caregiver notes are ready to become a warm family story.",
     checklist: ["Meals reviewed", "Nap / rest checked", "Activities reviewed", "Mood notes ready"],
   },
   pet: {
@@ -67,7 +67,7 @@ const typeConfig: Record<
     avatar: "bg-emerald-50 text-[#22C55E]",
     chip: "bg-emerald-50 text-[#22C55E]",
     summary:
-      "CareOS reviewed today's pet care activity. Walks, feeding, water, medicine and photo updates are ready for a family-friendly summary.",
+      "CareOS gathered today's pet care moments. Walks, feeding, water, medicine and shared moments are ready for a family-friendly Daily Story.",
     checklist: ["Walk status reviewed", "Food and water checked", "Medicine reviewed", "Photo updates ready"],
   },
   elder: {
@@ -76,7 +76,7 @@ const typeConfig: Record<
     avatar: "bg-violet-50 text-violet-700",
     chip: "bg-violet-50 text-violet-700",
     summary:
-      "CareOS reviewed today's elder care activity. Medication, care visits, notes and family updates are ready for a calm daily report.",
+      "CareOS gathered today's elder care moments. Medication, care visits, notes and family updates are ready for a calm Daily Story.",
     checklist: ["Medication reviewed", "Care visit checked", "Health notes reviewed", "Family update ready"],
   },
 };
@@ -213,19 +213,19 @@ export default function AISummaryPage() {
   }, [photos, selectedDependent]);
 
   const generatedSummary = useMemo(() => {
-    if (!selectedDependent) return "Select a dependent to generate a care summary.";
+    if (!selectedDependent) return "Select a dependent to create an AI Daily Story.";
 
     const config = typeConfig[selectedDependent.type];
     const logCount = selectedLogs.length;
     const photoCount = selectedPhotos.length;
 
     if (logCount === 0 && photoCount === 0) {
-      return `${selectedDependent.name} has no detailed updates yet today. Once care logs and photos are added, CareOS will turn them into a clear daily family summary.`;
+      return `${selectedDependent.name} has no detailed updates yet today. Once care updates and moments are added, CareOS will turn them into a clear Daily Story for the family.`;
     }
 
     const latestNote = selectedLogs.find((log) => log.note)?.note;
 
-    return `${selectedDependent.name}'s day is ready for review. CareOS found ${logCount} care log${logCount === 1 ? "" : "s"} and ${photoCount} photo report${photoCount === 1 ? "" : "s"}. ${latestNote ? `Latest note: ${latestNote}` : config.summary}`;
+    return `${selectedDependent.name}'s day is ready for the family. CareOS found ${logCount} care update${logCount === 1 ? "" : "s"} and ${photoCount} moment${photoCount === 1 ? "" : "s"}. ${latestNote ? `Latest update: ${latestNote}` : config.summary}`;
   }, [selectedDependent, selectedLogs, selectedPhotos]);
 
   async function handleLogout() {
@@ -237,7 +237,7 @@ export default function AISummaryPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
-          <p className="text-sm font-medium text-[#64748B]">Loading AI Summary...</p>
+          <p className="text-sm font-medium text-[#64748B]">Loading AI Daily Story...</p>
         </div>
       </main>
     );
@@ -305,10 +305,10 @@ export default function AISummaryPage() {
               ←
             </button>
 
-            <p className="text-sm font-semibold text-[#64748B]">AI Summary</p>
-            <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Daily care report</h1>
+            <p className="text-sm font-semibold text-[#64748B]">AI Daily Story</p>
+            <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">AI Daily Story</h1>
             <p className="mt-3 text-base leading-7 text-[#64748B]">
-              CareOS turns care logs, photos and schedule updates into a calm family summary.
+              CareOS turns care updates, moments and schedule details into a calm story for the family.
             </p>
 
             <div className="mt-7 flex flex-wrap gap-3">
@@ -335,11 +335,11 @@ export default function AISummaryPage() {
             <div className="mt-7 grid grid-cols-3 gap-3">
               <div className="rounded-[24px] bg-blue-50 p-4">
                 <p className="text-3xl font-black text-[#2563EB]">{selectedLogs.length}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">Care logs</p>
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">Care updates</p>
               </div>
               <div className="rounded-[24px] bg-emerald-50 p-4">
                 <p className="text-3xl font-black text-[#22C55E]">{selectedPhotos.length}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">Photos</p>
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">Moments</p>
               </div>
               <div className="rounded-[24px] bg-violet-50 p-4">
                 <p className="text-xl font-black text-violet-700">Ready</p>
@@ -352,9 +352,9 @@ export default function AISummaryPage() {
                 <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🤖</div>
                 <div>
                   <p className="text-sm font-semibold text-[#64748B]">CareOS AI</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Smart summary engine</h2>
+                  <h2 className="mt-1 text-2xl font-black text-[#0F172A]">AI Daily Story</h2>
                   <p className="mt-3 text-sm leading-6 text-[#64748B]">
-                    This screen is ready for the OpenAI API connection. Today it creates a clean preview from your Supabase data.
+                    Today it creates a warm story preview from the care your family shared.
                   </p>
                 </div>
               </div>
@@ -390,9 +390,9 @@ export default function AISummaryPage() {
                 </div>
 
                 <div className="mt-7 rounded-[32px] bg-[#F8FAFC] p-6">
-                  <p className="text-sm font-semibold text-[#64748B]">Generated Summary</p>
+                  <p className="text-sm font-semibold text-[#64748B]">Today&apos;s story draft</p>
                   <h3 className="mt-1 text-2xl font-black text-[#0F172A]">
-                    {selectedDependent.name}&apos;s daily summary
+                    {selectedDependent.name}&apos;s Daily Story
                   </h3>
                   <p className="mt-4 text-base leading-8 text-[#0F172A]">{generatedSummary}</p>
                 </div>
@@ -411,22 +411,22 @@ export default function AISummaryPage() {
                 <div className="mt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-[#64748B]">Source activity</p>
-                      <h3 className="mt-1 text-2xl font-black text-[#0F172A]">Recent inputs</h3>
+                      <p className="text-sm font-semibold text-[#64748B]">Care shared today</p>
+                      <h3 className="mt-1 text-2xl font-black text-[#0F172A]">Recent updates</h3>
                     </div>
                     <button
                       onClick={() => router.push("/care-log")}
                       className="rounded-full bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-100"
                     >
-                      Add log
+                      Add update
                     </button>
                   </div>
 
                   {selectedLogs.length === 0 ? (
                     <div className="mt-5 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
                       <div className="text-4xl">📝</div>
-                      <p className="mt-3 text-sm font-semibold text-[#0F172A]">No care logs yet.</p>
-                      <p className="mt-2 text-sm text-[#64748B]">Add logs and photos to improve the AI summary.</p>
+                      <p className="mt-3 text-sm font-semibold text-[#0F172A]">No care updates yet.</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Add updates and moments to shape the AI Daily Story.</p>
                     </div>
                   ) : (
                     <div className="mt-5 space-y-3">
