@@ -31,7 +31,7 @@ type MemberForm = {
   photoUrl: string;
 };
 
-const PROFILE_PHOTO_BUCKET = "care-photos";
+const PROFILE_PHOTO_BUCKETS = ["child-photos", "care-photos"];
 
 const emptyMemberForm: MemberForm = {
   name: "",
@@ -113,6 +113,35 @@ function getAge(dateOfBirth: string | null) {
 
 function getDateInputValue(value: string | null) {
   return value ? value.slice(0, 10) : "";
+}
+
+function isMissingBucketError(error: { message?: string }) {
+  const message = error.message?.toLowerCase() || "";
+  return message.includes("bucket not found") || message.includes("bucket") && message.includes("not found");
+}
+
+async function uploadDependentPhoto(file: File, storagePath: string) {
+  let lastError: { message?: string } | null = null;
+
+  for (const bucket of PROFILE_PHOTO_BUCKETS) {
+    const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (!error) {
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+      return publicUrlData.publicUrl;
+    }
+
+    lastError = error;
+
+    if (!isMissingBucketError(error)) {
+      throw error;
+    }
+  }
+
+  throw new Error(lastError?.message || "Dependent photo bucket was not found.");
 }
 
 export default function ManageFamilyPage() {
@@ -225,17 +254,7 @@ export default function ManageFamilyPage() {
     const safeName = photoFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
     const storagePath = `${family.id}/dependents/${dependentId}/profile-${Date.now()}-${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from(PROFILE_PHOTO_BUCKET)
-      .upload(storagePath, photoFile, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data: publicUrlData } = supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(storagePath);
-    return publicUrlData.publicUrl;
+    return uploadDependentPhoto(photoFile, storagePath);
   }
 
   async function handleSaveDependent() {
@@ -268,7 +287,9 @@ export default function ManageFamilyPage() {
             photo_url: nextPhotoUrl,
           })
           .eq("id", editingId)
-          .eq("family_id", family.id);
+          .eq("family_id", family.id)
+          .select("id")
+          .single();
 
         if (error) throw error;
         setMessage("Family member updated.");
@@ -296,7 +317,9 @@ export default function ManageFamilyPage() {
             .from("dependents")
             .update({ photo_url: nextPhotoUrl })
             .eq("id", data.id)
-            .eq("family_id", family.id);
+            .eq("family_id", family.id)
+            .select("id")
+            .single();
 
           if (photoError) throw photoError;
         }
