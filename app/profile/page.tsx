@@ -35,6 +35,13 @@ type Photo = {
 type OwnerProfile = {
   displayName: string;
   avatarUrl: string;
+  phone: string;
+  country: string;
+  state: string;
+  city: string;
+  zipCode: string;
+  streetAddress: string;
+  addressLine2: string;
 };
 
 const navItems = [
@@ -111,6 +118,24 @@ function getAge(dateOfBirth: string | null) {
   return age;
 }
 
+function getMetadataValue(metadata: Record<string, unknown>, key: string) {
+  return typeof metadata[key] === "string" ? metadata[key] as string : "";
+}
+
+function getAddressLines(profile: OwnerProfile) {
+  const cityStateZip = [
+    profile.city,
+    [profile.state, profile.zipCode].filter(Boolean).join(" "),
+  ].filter(Boolean).join(", ");
+
+  return [
+    profile.streetAddress,
+    profile.addressLine2,
+    cityStateZip,
+    profile.country,
+  ].filter(Boolean);
+}
+
 export default function ProfilePage() {
   const router = useRouter();
 
@@ -124,6 +149,13 @@ export default function ProfilePage() {
   const [ownerProfile, setOwnerProfile] = useState<OwnerProfile>({
     displayName: "",
     avatarUrl: "",
+    phone: "",
+    country: "",
+    state: "",
+    city: "",
+    zipCode: "",
+    streetAddress: "",
+    addressLine2: "",
   });
 
   async function loadProfile() {
@@ -136,18 +168,20 @@ export default function ProfilePage() {
 
     setEmail(userData.user.email);
 
-    const metadataName =
-      typeof userData.user.user_metadata?.full_name === "string"
-        ? userData.user.user_metadata.full_name
-        : typeof userData.user.user_metadata?.display_name === "string"
-          ? userData.user.user_metadata.display_name
-          : "";
-    const avatarUrl =
-      typeof userData.user.user_metadata?.avatar_url === "string" ? userData.user.user_metadata.avatar_url : "";
+    const metadata = userData.user.user_metadata || {};
+    const metadataName = getMetadataValue(metadata, "full_name") || getMetadataValue(metadata, "display_name");
+    const avatarUrl = getMetadataValue(metadata, "avatar_url");
 
     setOwnerProfile({
       displayName: metadataName.trim() || getDisplayName(userData.user.email),
       avatarUrl,
+      phone: getMetadataValue(metadata, "phone"),
+      country: getMetadataValue(metadata, "country"),
+      state: getMetadataValue(metadata, "state"),
+      city: getMetadataValue(metadata, "city"),
+      zipCode: getMetadataValue(metadata, "zip_code"),
+      streetAddress: getMetadataValue(metadata, "street_address"),
+      addressLine2: getMetadataValue(metadata, "address_line_2"),
     });
 
     const { data: familyData } = await supabase
@@ -210,6 +244,7 @@ export default function ProfilePage() {
     [email, ownerProfile.displayName]
   );
   const initials = displayName.slice(0, 1).toUpperCase();
+  const addressLines = useMemo(() => getAddressLines(ownerProfile), [ownerProfile]);
 
   const counts = useMemo(() => {
     return dependents.reduce(
@@ -343,6 +378,43 @@ export default function ProfilePage() {
                   <p className="text-3xl font-black text-violet-700">{counts.elder}</p>
                   <p className="mt-1 text-xs font-semibold text-[#64748B]">Elders</p>
                 </div>
+              </div>
+            </section>
+
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
+              <p className="text-sm font-semibold text-[#64748B]">Contact Information</p>
+              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Contact</h2>
+
+              <div className="mt-5 space-y-3">
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-xs font-bold uppercase text-[#64748B]">Email</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-[#0F172A]">{email || "Not added yet"}</p>
+                </div>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-xs font-bold uppercase text-[#64748B]">Phone</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-[#0F172A]">
+                    {ownerProfile.phone || "Not added yet"}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
+              <p className="text-sm font-semibold text-[#64748B]">Home Address</p>
+              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Home Address</h2>
+
+              <div className="mt-5 rounded-[24px] bg-[#F8FAFC] p-4">
+                {addressLines.length > 0 ? (
+                  <div className="space-y-1 text-sm font-semibold text-[#0F172A]">
+                    {addressLines.map((line, index) => (
+                      <p key={`${line}-${index}`} className="break-words">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm font-semibold text-[#64748B]">Not added yet</p>
+                )}
               </div>
             </section>
 

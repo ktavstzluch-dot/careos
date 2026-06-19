@@ -84,6 +84,13 @@ export default function EditProfilePage() {
   const [familyName, setFamilyName] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState("");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -111,6 +118,13 @@ export default function EditProfilePage() {
     setDisplayName(nextDisplayName);
     setGender(typeof metadata.gender === "string" ? metadata.gender : "");
     setDateOfBirth(typeof metadata.date_of_birth === "string" ? metadata.date_of_birth.slice(0, 10) : "");
+    setPhone(typeof metadata.phone === "string" ? metadata.phone : "");
+    setCountry(typeof metadata.country === "string" ? metadata.country : "");
+    setState(typeof metadata.state === "string" ? metadata.state : "");
+    setCity(typeof metadata.city === "string" ? metadata.city : "");
+    setZipCode(typeof metadata.zip_code === "string" ? metadata.zip_code : "");
+    setStreetAddress(typeof metadata.street_address === "string" ? metadata.street_address : "");
+    setAddressLine2(typeof metadata.address_line_2 === "string" ? metadata.address_line_2 : "");
     setAvatarUrl(typeof metadata.avatar_url === "string" ? metadata.avatar_url : "");
     setAvatarPreview("");
     setAvatarFile(null);
@@ -204,6 +218,13 @@ export default function EditProfilePage() {
         avatar_url: nextAvatarUrl,
         gender: gender || null,
         date_of_birth: dateOfBirth || null,
+        phone: phone.trim() || null,
+        country: country.trim() || null,
+        state: state.trim() || null,
+        city: city.trim() || null,
+        zip_code: zipCode.trim() || null,
+        street_address: streetAddress.trim() || null,
+        address_line_2: addressLine2.trim() || null,
       },
     });
 
@@ -214,20 +235,10 @@ export default function EditProfilePage() {
       return;
     }
 
-    console.log("Saving family", {
-      familyId: family.id,
-      nextFamilyName,
-    });
-
     const { error, count } = await supabase
       .from("families")
       .update({ name: nextFamilyName }, { count: "exact" })
       .eq("id", family.id);
-
-    console.log("Family update result", {
-      error,
-      count,
-    });
 
     if (error) {
       setSaving(false);
@@ -269,6 +280,13 @@ export default function EditProfilePage() {
     setAvatarUrl(savedAvatarUrl);
     setGender(typeof nextMetadata.gender === "string" ? nextMetadata.gender : gender);
     setDateOfBirth(typeof nextMetadata.date_of_birth === "string" ? nextMetadata.date_of_birth.slice(0, 10) : dateOfBirth);
+    setPhone(typeof nextMetadata.phone === "string" ? nextMetadata.phone : phone.trim());
+    setCountry(typeof nextMetadata.country === "string" ? nextMetadata.country : country.trim());
+    setState(typeof nextMetadata.state === "string" ? nextMetadata.state : state.trim());
+    setCity(typeof nextMetadata.city === "string" ? nextMetadata.city : city.trim());
+    setZipCode(typeof nextMetadata.zip_code === "string" ? nextMetadata.zip_code : zipCode.trim());
+    setStreetAddress(typeof nextMetadata.street_address === "string" ? nextMetadata.street_address : streetAddress.trim());
+    setAddressLine2(typeof nextMetadata.address_line_2 === "string" ? nextMetadata.address_line_2 : addressLine2.trim());
     setAvatarFile(null);
     setAvatarPreview("");
     setMessage("Profile updated.");
@@ -424,6 +442,89 @@ export default function EditProfilePage() {
                     className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                   />
                 </label>
+              </div>
+
+              <div className="mt-7 rounded-[28px] bg-[#F8FAFC] p-4 ring-1 ring-blue-100">
+                <h2 className="text-sm font-black text-[#0F172A]">Contact Information</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-bold text-[#64748B]">
+                    Email
+                    <input
+                      value={email || ""}
+                      readOnly
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#64748B] outline-none"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B]">
+                    Phone number
+                    <input
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="+1 555 000 0000"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[28px] bg-[#F8FAFC] p-4 ring-1 ring-blue-100">
+                <h2 className="text-sm font-black text-[#0F172A]">Home Address</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs font-bold text-[#64748B]">
+                    Country
+                    <input
+                      value={country}
+                      onChange={(event) => setCountry(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="United States"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B]">
+                    State
+                    <input
+                      value={state}
+                      onChange={(event) => setState(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="California"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B]">
+                    City
+                    <input
+                      value={city}
+                      onChange={(event) => setCity(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="Los Angeles"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B]">
+                    ZIP Code
+                    <input
+                      value={zipCode}
+                      onChange={(event) => setZipCode(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="90001"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B] sm:col-span-2">
+                    Street Address
+                    <input
+                      value={streetAddress}
+                      onChange={(event) => setStreetAddress(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="123 Main Street"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B] sm:col-span-2">
+                    Apartment / Unit / Office
+                    <input
+                      value={addressLine2}
+                      onChange={(event) => setAddressLine2(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="Apt 4B"
+                    />
+                  </label>
+                </div>
               </div>
 
               {message && (
