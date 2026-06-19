@@ -159,6 +159,14 @@ function getCareTypeLabel(session: CareSession) {
   return session.title?.trim() || session.care_type?.trim() || "Care session";
 }
 
+function getSessionTimeRange(session: CareSession) {
+  const start = session.starts_at || session.check_in_at;
+  const end = session.ends_at || session.check_out_at;
+
+  if (start && end) return `${formatTime(start)} - ${formatTime(end)}`;
+  return formatTime(start || end);
+}
+
 function getCareUpdateTitle(update: CareLog) {
   if (update.title?.trim()) return update.title.trim();
 
@@ -555,7 +563,7 @@ export default function DashboardPage() {
                   <p className="mt-2 text-sm leading-6 text-[#64748B]">Scheduled care will appear here.</p>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3 md:mt-6 2xl:grid 2xl:grid-cols-2 2xl:gap-3 2xl:space-y-0">
+                <div className="mt-4 space-y-4 md:mt-6">
                   {todaySessions.map((session) => {
                     const dependent = dependentById[session.dependent_id];
                     const config = dependent ? typeConfig[dependent.type] : null;
@@ -564,46 +572,59 @@ export default function DashboardPage() {
                     return (
                       <article
                         key={session.id}
-                        className="flex items-start gap-4 rounded-[26px] border border-blue-100 bg-[#FFFFFF] p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:shadow-blue-100/50 md:p-5"
+                        className="rounded-[30px] border border-blue-100 bg-[#FFFFFF] p-5 shadow-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-blue-100/50"
                       >
-                        {dependent?.photo_url ? (
-                          <img
-                            src={dependent.photo_url}
-                            alt={dependent.name}
-                            className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-blue-50"
-                          />
-                        ) : (
-                          <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
-                            {dependent ? <DependentTypeIcon type={dependent.type} /> : <span className="text-sm font-black">C</span>}
-                          </div>
-                        )}
+                        <div className="flex items-start gap-4">
+                          {dependent?.photo_url ? (
+                            <img
+                              src={dependent.photo_url}
+                              alt={dependent.name}
+                              className="h-16 w-16 shrink-0 rounded-[22px] object-cover"
+                            />
+                          ) : (
+                            <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] ${config?.avatar || "bg-blue-50 text-[#2563EB]"}`}>
+                              {dependent ? <DependentTypeIcon type={dependent.type} /> : <span className="text-sm font-black">C</span>}
+                            </div>
+                          )}
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="min-w-0 text-base font-black leading-5 text-[#0F172A]">
-                              {dependent?.name || "Loved one"}
-                            </h3>
-                            {dependent && (
-                              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${typeConfig[dependent.type].chip}`}>
-                                <DependentTypeIcon type={dependent.type} />
-                              </span>
-                            )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-lg font-black leading-6 text-[#0F172A]">
+                                    {dependent?.name || "Loved one"}
+                                  </h3>
+                                  {dependent && (
+                                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${typeConfig[dependent.type].chip}`}>
+                                      <DependentTypeIcon type={dependent.type} />
+                                      {typeConfig[dependent.type].label}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-sm font-semibold leading-5 text-[#0F172A]">
+                                  {getCareTypeLabel(session)}
+                                </p>
+                              </div>
+
+                              <div className="text-right">
+                                <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[session.status]}`}>
+                                  {session.status}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                              <div className="rounded-[22px] bg-[#F8FAFC] p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Who is caring</p>
+                                <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{caregiverName}</p>
+                              </div>
+                              <div className="rounded-[22px] bg-[#F8FAFC] p-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">When</p>
+                                <p className="mt-1 text-sm font-black leading-5 text-[#0F172A]">{getSessionTimeRange(session)}</p>
+                              </div>
+                            </div>
                           </div>
-                          <p className="mt-1 text-sm font-bold leading-5 text-[#0F172A]">
-                            {getCareTypeLabel(session)}
-                          </p>
-                          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm font-medium leading-5 text-[#64748B]">
-                            <span>{caregiverName}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="whitespace-nowrap">
-                              {formatTime(session.starts_at || session.check_in_at)}
-                            </span>
-                          </p>
                         </div>
-
-                        <span className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold ${statusStyles[session.status]}`}>
-                          {session.status}
-                        </span>
                       </article>
                     );
                   })}
