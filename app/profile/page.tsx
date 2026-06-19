@@ -116,6 +116,17 @@ export default function ProfilePage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [isEditingAccount, setIsEditingAccount] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [familyName, setFamilyName] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberType, setNewMemberType] = useState<DependentType>("child");
+  const [newMemberBirthDate, setNewMemberBirthDate] = useState("");
+  const [memberMessage, setMemberMessage] = useState("");
+  const [savingMember, setSavingMember] = useState(false);
+  const [deletingDependentId, setDeletingDependentId] = useState("");
 
   async function loadProfile() {
     const { data: userData } = await supabase.auth.getUser();
@@ -126,6 +137,15 @@ export default function ProfilePage() {
     }
 
     setEmail(userData.user.email);
+
+    const metadataName =
+      typeof userData.user.user_metadata?.full_name === "string"
+        ? userData.user.user_metadata.full_name
+        : typeof userData.user.user_metadata?.display_name === "string"
+          ? userData.user.user_metadata.display_name
+          : "";
+
+    setProfileName(metadataName.trim() || getDisplayName(userData.user.email));
 
     const { data: familyData } = await supabase
       .from("families")
@@ -139,6 +159,7 @@ export default function ProfilePage() {
     }
 
     setFamily(familyData);
+    setFamilyName(familyData.name);
 
     const { data: dependentsData } = await supabase
       .from("dependents")
@@ -163,6 +184,8 @@ export default function ProfilePage() {
         .limit(200);
 
       setCareLogs((logsData || []) as CareLog[]);
+    } else {
+      setCareLogs([]);
     }
 
     const { data: photosData } = await supabase
@@ -180,7 +203,7 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const displayName = useMemo(() => getDisplayName(email), [email]);
+  const displayName = useMemo(() => profileName.trim() || getDisplayName(email), [email, profileName]);
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const counts = useMemo(() => {
@@ -198,6 +221,147 @@ export default function ProfilePage() {
       logs: careLogs.filter((log) => log.dependent_id === dependentId).length,
       photos: photos.filter((photo) => photo.dependent_id === dependentId).length,
     };
+  }
+
+  function handleStartAccountEdit() {
+    setProfileMessage("");
+    setProfileName(displayName);
+    setFamilyName(family?.name || "");
+    setIsEditingAccount(true);
+  }
+
+  function handleCancelAccountEdit() {
+    setProfileMessage("");
+    setProfileName(displayName);
+    setFamilyName(family?.name || "");
+    setIsEditingAccount(false);
+  }
+
+  async function handleSaveAccount() {
+    setProfileMessage("");
+
+    const nextProfileName = profileName.trim();
+    const nextFamilyName = familyName.trim();
+
+    if (!nextProfileName) {
+      setProfileMessage("Please add your name.");
+      return;
+    }
+
+    if (!nextFamilyName) {
+      setProfileMessage("Please add a family name.");
+      return;
+    }
+
+    if (!family) {
+      setProfileMessage("Family workspace was not found.");
+      return;
+    }
+
+    setSavingAccount(true);
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: {
+        display_name: nextProfileName,
+        full_name: nextProfileName,
+      },
+    });
+
+    if (authError) {
+      setSavingAccount(false);
+      setProfileMessage(authError.message);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("families")
+      .update({ name: nextFamilyName })
+      .eq("id", family.id)
+      .select("id, name")
+      .single();
+
+    setSavingAccount(false);
+
+    if (error) {
+      setProfileMessage(error.message);
+      return;
+    }
+
+    setFamily(data as Family);
+    setProfileName(nextProfileName);
+    setFamilyName(nextFamilyName);
+    setIsEditingAccount(false);
+    setProfileMessage("Profile updated.");
+    await loadProfile();
+  }
+
+  async function handleAddFamilyMember() {
+    setMemberMessage("");
+
+    if (!family) {
+      setMemberMessage("Family workspace was not found.");
+      return;
+    }
+
+    const nextName = newMemberName.trim();
+
+    if (!nextName) {
+      setMemberMessage("Please add a name.");
+      return;
+    }
+
+    setSavingMember(true);
+
+    const { error } = await supabase
+      .from("dependents")
+      .insert({
+        family_id: family.id,
+        type: newMemberType,
+        name: nextName,
+        date_of_birth: newMemberBirthDate || null,
+        notes: null,
+      })
+      .select("id")
+      .single();
+
+    setSavingMember(false);
+
+    if (error) {
+      setMemberMessage(error.message);
+      return;
+    }
+
+    setNewMemberName("");
+    setNewMemberType("child");
+    setNewMemberBirthDate("");
+    setMemberMessage("Family member added.");
+    await loadProfile();
+  }
+
+  async function handleDeleteFamilyMember(dependent: Dependent) {
+    setMemberMessage("");
+
+    const confirmed = window.confirm(`Remove ${dependent.name} from your family workspace?`);
+
+    if (!confirmed) return;
+
+    setDeletingDependentId(dependent.id);
+
+    const { error } = await supabase
+      .from("dependents")
+      .delete()
+      .eq("id", dependent.id)
+      .eq("family_id", dependent.family_id);
+
+    setDeletingDependentId("");
+
+    if (error) {
+      setMemberMessage(error.message);
+      return;
+    }
+
+    setMemberMessage("Family member removed.");
+    await loadProfile();
   }
 
   async function handleLogout() {
@@ -277,12 +441,68 @@ export default function ProfilePage() {
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-[30px] bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-4xl font-black text-white shadow-lg shadow-blue-100">
                   {initials}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-[#64748B]">Owner account</p>
                   <h1 className="mt-1 truncate text-4xl font-black tracking-tight text-[#0F172A]">{displayName}</h1>
                   <p className="mt-2 truncate text-sm text-[#64748B]">{email}</p>
                 </div>
+                {!isEditingAccount && (
+                  <button
+                    onClick={handleStartAccountEdit}
+                    className="rounded-full bg-blue-50 px-4 py-2 text-xs font-bold text-[#2563EB] transition hover:bg-blue-100"
+                  >
+                    Edit profile
+                  </button>
+                )}
               </div>
+
+              {isEditingAccount && (
+                <div className="mt-6 rounded-[28px] bg-[#F8FAFC] p-5 ring-1 ring-blue-100">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-xs font-bold text-[#64748B]">
+                      Your name
+                      <input
+                        value={profileName}
+                        onChange={(event) => setProfileName(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                        placeholder="Tigran Hakobyan"
+                      />
+                    </label>
+                    <label className="text-xs font-bold text-[#64748B]">
+                      Family name
+                      <input
+                        value={familyName}
+                        onChange={(event) => setFamilyName(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                        placeholder="Hakobyan family"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <button
+                      onClick={handleSaveAccount}
+                      disabled={savingAccount}
+                      className="rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {savingAccount ? "Saving..." : "Save changes"}
+                    </button>
+                    <button
+                      onClick={handleCancelAccountEdit}
+                      disabled={savingAccount}
+                      className="rounded-full bg-white px-5 py-3 text-sm font-bold text-[#64748B] ring-1 ring-blue-100 transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {profileMessage && (
+                <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-[#22C55E]">
+                  {profileMessage}
+                </p>
+              )}
 
               <div className="mt-7 grid grid-cols-3 gap-3">
                 <div className="rounded-[24px] bg-blue-50 p-4 text-center">
@@ -337,6 +557,57 @@ export default function ProfilePage() {
                 </span>
               </div>
 
+              <div className="mt-6 rounded-[28px] bg-[#F8FAFC] p-5 ring-1 ring-blue-100">
+                <p className="text-sm font-black text-[#0F172A]">Add family member</p>
+                <p className="mt-1 text-xs leading-5 text-[#64748B]">
+                  Add a child, pet or elder profile to keep care connected for your family.
+                </p>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-[1fr_0.7fr_0.9fr]">
+                  <label className="text-xs font-bold text-[#64748B]">
+                    Name
+                    <input
+                      value={newMemberName}
+                      onChange={(event) => setNewMemberName(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="Emma"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B]">
+                    Type
+                    <select
+                      value={newMemberType}
+                      onChange={(event) => setNewMemberType(event.target.value as DependentType)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    >
+                      <option value="child">Child</option>
+                      <option value="pet">Pet</option>
+                      <option value="elder">Elder</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-[#64748B]">
+                    Date of birth
+                    <input
+                      type="date"
+                      value={newMemberBirthDate}
+                      onChange={(event) => setNewMemberBirthDate(event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    onClick={handleAddFamilyMember}
+                    disabled={savingMember}
+                    className="rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingMember ? "Adding..." : "Add member"}
+                  </button>
+                  {memberMessage && <p className="text-sm font-semibold text-[#64748B]">{memberMessage}</p>}
+                </div>
+              </div>
+
               {dependents.length === 0 ? (
                 <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                   <div className="text-5xl">💙</div>
@@ -351,9 +622,16 @@ export default function ProfilePage() {
                     const age = getAge(dependent.date_of_birth);
 
                     return (
-                      <button
+                      <article
                         key={dependent.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => router.push(`/dependent/${dependent.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            router.push(`/dependent/${dependent.id}`);
+                          }
+                        }}
                         className="group rounded-[30px] border border-blue-100 bg-[#FFFFFF] p-5 text-left transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-blue-100/50"
                       >
                         <div className="flex items-center justify-between gap-4">
@@ -364,9 +642,21 @@ export default function ProfilePage() {
                               {config.icon}
                             </div>
                           )}
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${config.chip}`}>
-                            {config.label}
-                          </span>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${config.chip}`}>
+                              {config.label}
+                            </span>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteFamilyMember(dependent);
+                              }}
+                              disabled={deletingDependentId === dependent.id}
+                              className="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-[#EF4444] transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {deletingDependentId === dependent.id ? "Removing..." : "Delete"}
+                            </button>
+                          </div>
                         </div>
 
                         <h3 className="mt-5 text-xl font-black text-[#0F172A]">{dependent.name}</h3>
@@ -384,7 +674,7 @@ export default function ProfilePage() {
                             <p className="text-xs text-[#64748B]">Photos</p>
                           </div>
                         </div>
-                      </button>
+                      </article>
                     );
                   })}
                 </div>
