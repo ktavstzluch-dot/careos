@@ -90,6 +90,7 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   async function loadProfile() {
@@ -155,21 +156,25 @@ export default function EditProfilePage() {
     if (!file) return;
     setAvatarFile(file);
     setMessage("");
+    setMessageType(null);
   }
 
   async function handleSaveProfile() {
     setMessage("");
+    setMessageType(null);
 
     const nextDisplayName = displayName.trim();
     const nextFamilyName = familyName.trim();
 
     if (!nextDisplayName) {
       setMessage("Please add your name.");
+      setMessageType("error");
       return;
     }
 
     if (!nextFamilyName || !family) {
       setMessage("Please add a family name.");
+      setMessageType("error");
       return;
     }
 
@@ -187,6 +192,7 @@ export default function EditProfilePage() {
       } catch (error) {
         setSaving(false);
         setMessage(error instanceof Error ? error.message : "Profile photo could not be uploaded.");
+        setMessageType("error");
         return;
       }
     }
@@ -204,23 +210,36 @@ export default function EditProfilePage() {
     if (authError) {
       setSaving(false);
       setMessage(authError.message);
+      setMessageType("error");
       return;
     }
+
+    console.log("Saving family", {
+      familyId: family.id,
+      nextFamilyName,
+    });
 
     const { error, count } = await supabase
       .from("families")
       .update({ name: nextFamilyName }, { count: "exact" })
       .eq("id", family.id);
 
+    console.log("Family update result", {
+      error,
+      count,
+    });
+
     if (error) {
       setSaving(false);
-      setMessage("Family name could not be saved. Please try again.");
+      setMessage(error.message || "Family update failed.");
+      setMessageType("error");
       return;
     }
 
     if (count === 0) {
       setSaving(false);
-      setMessage("Family name could not be saved. Please try again.");
+      setMessage("Family update failed.");
+      setMessageType("error");
       return;
     }
 
@@ -232,7 +251,8 @@ export default function EditProfilePage() {
 
     if (familyRefreshError) {
       setSaving(false);
-      setMessage("Profile was saved, but the family details could not be refreshed.");
+      setMessage(familyRefreshError.message || "Profile was saved, but the family details could not be refreshed.");
+      setMessageType("error");
       return;
     }
 
@@ -252,6 +272,7 @@ export default function EditProfilePage() {
     setAvatarFile(null);
     setAvatarPreview("");
     setMessage("Profile updated.");
+    setMessageType("success");
     await loadProfile();
     setSaving(false);
   }
@@ -405,7 +426,15 @@ export default function EditProfilePage() {
                 </label>
               </div>
 
-              {message && <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-[#22C55E]">{message}</p>}
+              {message && (
+                <p
+                  className={`mt-4 rounded-2xl px-4 py-3 text-sm font-semibold ${
+                    messageType === "error" ? "bg-red-50 text-[#EF4444]" : "bg-emerald-50 text-[#22C55E]"
+                  }`}
+                >
+                  {message}
+                </p>
+              )}
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button
