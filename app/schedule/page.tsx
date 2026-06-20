@@ -740,7 +740,7 @@ export default function SchedulePage() {
                           </div>
 
                           <button
-                            onClick={() => router.push("/sessions")}
+                            onClick={() => router.push(`/sessions/${session.id}`)}
                             className="mt-5 rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
                           >
                             Open Session
