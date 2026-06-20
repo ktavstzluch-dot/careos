@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
+type SessionStatus = "scheduled" | "active" | "completed" | "cancelled";
 
 type Dependent = {
   id: string;
@@ -20,7 +21,29 @@ type Family = {
   name: string;
 };
 
+type CareSession = {
+  id: string;
+  family_id: string;
+  dependent_id: string;
+  title: string | null;
+  care_type: string | null;
+  caregiver_name: string | null;
+  status: SessionStatus;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+};
+
 type ScheduleFilter = "all" | "child" | "pet" | "elder";
+
+type SessionForm = {
+  dependent_id: string;
+  title: string;
+  caregiver_name: string;
+  starts_at: string;
+  ends_at: string;
+  notes: string;
+};
 
 const filters: Array<{ value: ScheduleFilter; label: string }> = [
   { value: "all", label: "All" },
@@ -43,61 +66,50 @@ const typeConfig: Record<
     label: string;
     avatarClass: string;
     badgeClass: string;
-    eventTitle: string;
-    caregiver: string;
-    time: string;
-    status: "Active" | "Confirmed" | "Pending" | "Completed";
   }
 > = {
   child: {
     label: "Child",
     avatarClass: "bg-violet-50 text-violet-700",
     badgeClass: "bg-violet-50 text-violet-700",
-    eventTitle: "Nanny Visit",
-    caregiver: "Anna Johnson",
-    time: "3:00 PM – 7:00 PM",
-    status: "Confirmed",
   },
   pet: {
     label: "Pet",
     avatarClass: "bg-emerald-50 text-[#22C55E]",
     badgeClass: "bg-emerald-50 text-[#22C55E]",
-    eventTitle: "Dog Walk",
-    caregiver: "Mike Walker",
-    time: "6:00 PM – 7:00 PM",
-    status: "Confirmed",
   },
   elder: {
     label: "Elder",
     avatarClass: "bg-blue-50 text-[#2563EB]",
     badgeClass: "bg-blue-50 text-[#2563EB]",
-    eventTitle: "Care Visit",
-    caregiver: "Sophie Martin",
-    time: "7:00 PM – 8:00 PM",
-    status: "Pending",
   },
 };
 
 const statusConfig: Record<
-  "Active" | "Confirmed" | "Pending" | "Completed",
+  SessionStatus,
   {
+    label: string;
     dotClass: string;
     badgeClass: string;
   }
 > = {
-  Active: {
+  active: {
+    label: "Active",
     dotClass: "bg-[#22C55E]",
     badgeClass: "bg-emerald-50 text-[#16A34A]",
   },
-  Confirmed: {
+  scheduled: {
+    label: "Confirmed",
     dotClass: "bg-[#22C55E]",
     badgeClass: "bg-emerald-50 text-[#16A34A]",
   },
-  Pending: {
-    dotClass: "bg-amber-400",
-    badgeClass: "bg-amber-50 text-amber-600",
+  completed: {
+    label: "Completed",
+    dotClass: "bg-slate-300",
+    badgeClass: "bg-slate-50 text-[#64748B]",
   },
-  Completed: {
+  cancelled: {
+    label: "Cancelled",
     dotClass: "bg-slate-300",
     badgeClass: "bg-slate-50 text-[#64748B]",
   },
@@ -172,6 +184,49 @@ function getWeekDays() {
   });
 }
 
+function getTodayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+
+  return { start, end };
+}
+
+function toDateTimeLocalValue(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function getDefaultForm(dependentId = ""): SessionForm {
+  const start = new Date();
+  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
+
+  const end = new Date(start);
+  end.setHours(start.getHours() + 1);
+
+  return {
+    dependent_id: dependentId,
+    title: "",
+    caregiver_name: "",
+    starts_at: toDateTimeLocalValue(start),
+    ends_at: toDateTimeLocalValue(end),
+    notes: "",
+  };
+}
+
+function formatTimeRange(startValue: string | null, endValue: string | null) {
+  if (!startValue || !endValue) return "Time to be confirmed";
+
+  const formatter = new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return `${formatter.format(new Date(startValue))} - ${formatter.format(new Date(endValue))}`;
+}
+
 export default function SchedulePage() {
   const router = useRouter();
 
@@ -180,11 +235,19 @@ export default function SchedulePage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [family, setFamily] = useState<Family | null>(null);
   const [dependents, setDependents] = useState<Dependent[]>([]);
+  const [sessions, setSessions] = useState<CareSession[]>([]);
   const [activeFilter, setActiveFilter] = useState<ScheduleFilter>("all");
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
+  const [form, setForm] = useState<SessionForm>(() => getDefaultForm());
 
   async function loadSchedule() {
+    setLoading(true);
+
     const { data: userData } = await supabase.auth.getUser();
 
     if (!userData.user) {
@@ -217,7 +280,26 @@ export default function SchedulePage() {
       .in("type", ["child", "pet", "elder"])
       .order("created_at", { ascending: false });
 
-    setDependents(((dependentsData || []) as Dependent[]).filter((item) => ["child", "pet", "elder"].includes(item.type)));
+    const loadedDependents = ((dependentsData || []) as Dependent[]).filter((item) =>
+      ["child", "pet", "elder"].includes(item.type),
+    );
+
+    setDependents(loadedDependents);
+    setForm((current) => ({
+      ...current,
+      dependent_id: current.dependent_id || loadedDependents[0]?.id || "",
+    }));
+
+    const { start, end } = getTodayRange();
+    const { data: sessionsData } = await supabase
+      .from("care_sessions")
+      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, created_at")
+      .eq("family_id", familyData.id)
+      .gte("starts_at", start.toISOString())
+      .lt("starts_at", end.toISOString())
+      .order("starts_at", { ascending: true });
+
+    setSessions((sessionsData || []) as CareSession[]);
     setLoading(false);
   }
 
@@ -229,14 +311,85 @@ export default function SchedulePage() {
   const initials = displayName.slice(0, 1).toUpperCase();
   const weekDays = useMemo(() => getWeekDays(), []);
 
-  const visibleDependents = useMemo(() => {
-    if (activeFilter === "all") return dependents;
-    return dependents.filter((dependent) => dependent.type === activeFilter);
-  }, [activeFilter, dependents]);
+  const dependentById = useMemo(() => {
+    return dependents.reduce<Record<string, Dependent>>((acc, dependent) => {
+      acc[dependent.id] = dependent;
+      return acc;
+    }, {});
+  }, [dependents]);
+
+  const visibleSessions = useMemo(() => {
+    if (activeFilter === "all") return sessions;
+    return sessions.filter((session) => dependentById[session.dependent_id]?.type === activeFilter);
+  }, [activeFilter, dependentById, sessions]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/sign-in");
+  }
+
+  function updateForm(field: keyof SessionForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function openCreateForm() {
+    setForm(getDefaultForm(form.dependent_id || dependents[0]?.id || ""));
+    setMessage(null);
+    setMessageType(null);
+    setShowCreateForm(true);
+  }
+
+  async function handleCreateSession(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const title = form.title.trim();
+    const caregiverName = form.caregiver_name.trim();
+    const notes = form.notes.trim();
+    const startsAt = form.starts_at ? new Date(form.starts_at) : null;
+    const endsAt = form.ends_at ? new Date(form.ends_at) : null;
+
+    if (!family || !form.dependent_id || !title || !caregiverName || !startsAt || !endsAt) {
+      setMessage("Please complete the session details before saving.");
+      setMessageType("error");
+      return;
+    }
+
+    if (endsAt <= startsAt) {
+      setMessage("End time must be after start time.");
+      setMessageType("error");
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    setMessageType(null);
+
+    const { error } = await supabase.from("care_sessions").insert({
+      family_id: family.id,
+      dependent_id: form.dependent_id,
+      title,
+      care_type: title,
+      caregiver_name: caregiverName,
+      starts_at: startsAt.toISOString(),
+      ends_at: endsAt.toISOString(),
+      status: "scheduled",
+      notes: notes || null,
+      instructions: notes || null,
+    });
+
+    setSaving(false);
+
+    if (error) {
+      setMessage(error.message || "Session could not be created.");
+      setMessageType("error");
+      return;
+    }
+
+    setMessage("Session created. Today's Care Plan is updated.");
+    setMessageType("success");
+    setForm(getDefaultForm(form.dependent_id));
+    setShowCreateForm(false);
+    await loadSchedule();
   }
 
   if (loading) {
@@ -321,11 +474,15 @@ export default function SchedulePage() {
                 <p className="text-sm font-semibold text-[#64748B]">Schedule</p>
                 <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Today&apos;s Care Plan</h1>
                 <p className="mt-3 max-w-xl text-base leading-7 text-[#64748B]">
-                  A simple plan for who is cared for, who is caring, and when care happens today.
+                  Plan the care that keeps your family feeling safe and connected.
                 </p>
               </div>
 
-              <button className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB] text-2xl font-bold text-white shadow-lg shadow-blue-200">
+              <button
+                onClick={openCreateForm}
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB] text-2xl font-bold text-white shadow-lg shadow-blue-200"
+                aria-label="Create Session"
+              >
                 +
               </button>
             </div>
@@ -372,17 +529,16 @@ export default function SchedulePage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-[28px] border border-blue-100 bg-gradient-to-br from-blue-50 to-emerald-50 p-5">
-              <p className="text-sm font-black text-[#0F172A]">Care focus</p>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                Today&apos;s plan is organized around people first, so the family can quickly see who is cared for,
-                who is with them, and when care is happening.
-              </p>
-            </div>
+            <button
+              onClick={openCreateForm}
+              className="mt-6 w-full rounded-[24px] bg-[#2563EB] px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
+            >
+              Create Session
+            </button>
           </section>
 
           <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[#64748B]">Today</p>
                 <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today&apos;s Care Plan</h2>
@@ -392,7 +548,118 @@ export default function SchedulePage() {
               </span>
             </div>
 
-            {visibleDependents.length === 0 ? (
+            {message && (
+              <div
+                className={`mt-5 rounded-[22px] px-4 py-3 text-sm font-semibold ${
+                  messageType === "error" ? "bg-red-50 text-[#EF4444]" : "bg-emerald-50 text-[#16A34A]"
+                }`}
+              >
+                {message}
+              </div>
+            )}
+
+            {showCreateForm && (
+              <form onSubmit={handleCreateSession} className="mt-7 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-black text-[#0F172A]">Create Session</h3>
+                    <p className="mt-1 text-sm leading-6 text-[#64748B]">
+                      Plan who is cared for, who is caring, and when the session happens.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
+                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#64748B] transition hover:text-[#2563EB]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Dependent</span>
+                    <select
+                      value={form.dependent_id}
+                      onChange={(event) => updateForm("dependent_id", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    >
+                      <option value="">Choose dependent</option>
+                      {dependents.map((dependent) => (
+                        <option key={dependent.id} value={dependent.id}>
+                          {dependent.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Session title</span>
+                    <input
+                      value={form.title}
+                      onChange={(event) => updateForm("title", event.target.value)}
+                      placeholder="Nanny Visit"
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Caregiver name</span>
+                    <input
+                      value={form.caregiver_name}
+                      onChange={(event) => updateForm("caregiver_name", event.target.value)}
+                      placeholder="Anna Johnson"
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Start date/time</span>
+                    <input
+                      type="datetime-local"
+                      value={form.starts_at}
+                      onChange={(event) => updateForm("starts_at", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">End date/time</span>
+                    <input
+                      type="datetime-local"
+                      value={form.ends_at}
+                      onChange={(event) => updateForm("ends_at", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Notes optional</span>
+                    <textarea
+                      value={form.notes}
+                      onChange={(event) => updateForm("notes", event.target.value)}
+                      placeholder="Anything the caregiver should know?"
+                      className="mt-2 min-h-24 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                >
+                  {saving ? "Creating..." : "Create Session"}
+                </button>
+              </form>
+            )}
+
+            {visibleSessions.length === 0 ? (
               <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#2563EB] shadow-sm">
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
@@ -402,62 +669,82 @@ export default function SchedulePage() {
                     <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
                   </svg>
                 </div>
-                <p className="mt-4 font-semibold text-[#0F172A]">No care scheduled today.</p>
-                <p className="mt-2 text-sm text-[#64748B]">Scheduled care will appear here.</p>
+                <p className="mt-4 font-semibold text-[#0F172A]">No care planned today</p>
+                <p className="mt-2 text-sm text-[#64748B]">Create the first session to start building your Care Story.</p>
+                <button
+                  onClick={openCreateForm}
+                  className="mt-5 rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
+                >
+                  Create Session
+                </button>
               </div>
             ) : (
               <div className="mt-7 space-y-4">
-                {visibleDependents.map((dependent) => {
-                  const config = typeConfig[dependent.type];
-                  const status = statusConfig[config.status];
+                {visibleSessions.map((session) => {
+                  const dependent = dependentById[session.dependent_id];
+                  const config = dependent ? typeConfig[dependent.type] : null;
+                  const status = statusConfig[session.status] || statusConfig.scheduled;
 
                   return (
                     <article
-                      key={dependent.id}
-                      className="rounded-[30px] border border-blue-100 bg-[#FFFFFF] p-5 shadow-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-blue-100/50"
+                      key={session.id}
+                      className="rounded-[30px] border border-blue-100 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-100/50"
                     >
-                      <div className="flex items-start gap-4">
-                        {dependent.photo_url ? (
+                      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                        {dependent?.photo_url ? (
                           <img src={dependent.photo_url} alt={dependent.name} className="h-16 w-16 rounded-[22px] object-cover" />
                         ) : (
-                          <div className={`flex h-16 w-16 items-center justify-center rounded-[22px] ${config.avatarClass}`}>
-                            <DependentTypeIcon type={dependent.type} />
+                          <div
+                            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] ${
+                              config?.avatarClass || "bg-blue-50 text-[#2563EB]"
+                            }`}
+                          >
+                            {dependent ? <DependentTypeIcon type={dependent.type} /> : "?"}
                           </div>
                         )}
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
+                            <div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-lg font-black text-[#0F172A]">{dependent.name}</h3>
-                                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.badgeClass}`}>
-                                  <DependentTypeIcon type={dependent.type} />
-                                  {config.label}
-                                </span>
+                                <h3 className="text-lg font-black text-[#0F172A]">{dependent?.name || "Dependent"}</h3>
+                                {dependent && config && (
+                                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${config.badgeClass}`}>
+                                    <DependentTypeIcon type={dependent.type} />
+                                    {config.label}
+                                  </span>
+                                )}
                               </div>
-                              <p className="mt-1 text-sm font-semibold text-[#0F172A]">{config.eventTitle}</p>
+                              <p className="mt-1 text-sm font-semibold text-[#0F172A]">{session.title || "Care Session"}</p>
                             </div>
 
-                            <div className="text-right">
-                              <div
-                                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${status.badgeClass}`}
-                              >
-                                <span className={`h-2 w-2 rounded-full ${status.dotClass}`} />
-                                {config.status}
-                              </div>
+                            <div
+                              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${status.badgeClass}`}
+                            >
+                              <span className={`h-2 w-2 rounded-full ${status.dotClass}`} />
+                              {status.label}
                             </div>
                           </div>
 
                           <div className="mt-5 grid gap-3 sm:grid-cols-2">
                             <div className="rounded-[22px] bg-[#F8FAFC] p-4">
                               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Who is caring</p>
-                              <p className="mt-1 text-sm font-black text-[#0F172A]">{config.caregiver}</p>
+                              <p className="mt-1 text-sm font-black text-[#0F172A]">{session.caregiver_name || "Caregiver"}</p>
                             </div>
                             <div className="rounded-[22px] bg-[#F8FAFC] p-4">
                               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">When</p>
-                              <p className="mt-1 text-sm font-black text-[#0F172A]">{config.time}</p>
+                              <p className="mt-1 text-sm font-black text-[#0F172A]">
+                                {formatTimeRange(session.starts_at, session.ends_at)}
+                              </p>
                             </div>
                           </div>
+
+                          <button
+                            onClick={() => router.push("/sessions")}
+                            className="mt-5 rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
+                          >
+                            Open Session
+                          </button>
                         </div>
                       </div>
                     </article>
