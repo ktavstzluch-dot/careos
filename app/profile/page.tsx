@@ -347,7 +347,6 @@ export default function ProfilePage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-[#64748B]">Owner account</p>
                   <h1 className="mt-1 truncate text-4xl font-black tracking-tight text-[#0F172A]">{displayName}</h1>
-                  <p className="mt-2 truncate text-sm text-[#64748B]">{email}</p>
                 </div>
                 <button
                   onClick={() => router.push("/profile/edit")}
