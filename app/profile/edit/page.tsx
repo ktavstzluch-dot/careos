@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getAvatarUrlFromUser, getDisplayNameFromUser } from "@/lib/profile";
 
 type Family = {
   id: string;
@@ -37,13 +38,6 @@ function CareOSLogo() {
       </div>
     </div>
   );
-}
-
-function getDisplayName(email?: string) {
-  if (!email) return "Tigran";
-  const first = email.split("@")[0];
-  if (first.toLowerCase() === "mail") return "Tigran";
-  return first.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function isMissingBucketError(error: { message?: string }) {
@@ -109,10 +103,7 @@ export default function EditProfilePage() {
     }
 
     const metadata = userData.user.user_metadata || {};
-    const nextDisplayName =
-      (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
-      (typeof metadata.display_name === "string" && metadata.display_name.trim()) ||
-      getDisplayName(userData.user.email);
+    const nextDisplayName = getDisplayNameFromUser(userData.user);
 
     setEmail(userData.user.email);
     setDisplayName(nextDisplayName);
@@ -125,7 +116,7 @@ export default function EditProfilePage() {
     setZipCode(typeof metadata.zip_code === "string" ? metadata.zip_code : "");
     setStreetAddress(typeof metadata.street_address === "string" ? metadata.street_address : "");
     setAddressLine2(typeof metadata.address_line_2 === "string" ? metadata.address_line_2 : "");
-    setAvatarUrl(typeof metadata.avatar_url === "string" ? metadata.avatar_url : "");
+    setAvatarUrl(getAvatarUrlFromUser(userData.user));
     setAvatarPreview("");
     setAvatarFile(null);
 
@@ -160,7 +151,7 @@ export default function EditProfilePage() {
   }, [avatarFile]);
 
   const initials = useMemo(() => {
-    return (displayName.trim() || getDisplayName(email)).slice(0, 1).toUpperCase();
+    return (displayName.trim() || getDisplayNameFromUser({ email })).slice(0, 1).toUpperCase();
   }, [displayName, email]);
 
   const avatarSrc = avatarPreview || avatarUrl;
@@ -211,7 +202,7 @@ export default function EditProfilePage() {
       }
     }
 
-    const { data: authData, error: authError } = await supabase.auth.updateUser({
+    const { error: authError } = await supabase.auth.updateUser({
       data: {
         full_name: nextDisplayName,
         display_name: nextDisplayName,
@@ -267,12 +258,11 @@ export default function EditProfilePage() {
       return;
     }
 
-    const nextMetadata = authData.user?.user_metadata || {};
-    const savedDisplayName =
-      (typeof nextMetadata.full_name === "string" && nextMetadata.full_name.trim()) ||
-      (typeof nextMetadata.display_name === "string" && nextMetadata.display_name.trim()) ||
-      nextDisplayName;
-    const savedAvatarUrl = typeof nextMetadata.avatar_url === "string" ? nextMetadata.avatar_url : nextAvatarUrl;
+    const { data: refreshedUserData } = await supabase.auth.getUser();
+    const refreshedUser = refreshedUserData.user;
+    const nextMetadata = refreshedUser?.user_metadata || {};
+    const savedDisplayName = refreshedUser ? getDisplayNameFromUser(refreshedUser) : nextDisplayName;
+    const savedAvatarUrl = refreshedUser ? getAvatarUrlFromUser(refreshedUser) : nextAvatarUrl;
 
     setFamily((refreshedFamily as Family) || { ...family, name: nextFamilyName });
     setDisplayName(savedDisplayName);
@@ -408,7 +398,7 @@ export default function EditProfilePage() {
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
                     className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                    placeholder="Tigran Hakobyan"
+                    placeholder="Your name"
                   />
                 </label>
                 <label className="text-xs font-bold text-[#64748B]">
