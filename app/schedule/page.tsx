@@ -7,6 +7,14 @@ import { getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
 type SessionStatus = "scheduled" | "active" | "completed" | "cancelled";
+type PlannedActionType = "meal" | "nap" | "walk" | "medicine" | "activity" | "custom";
+
+type PlannedAction = {
+  id: string;
+  type: PlannedActionType;
+  label: string;
+  notes?: string;
+};
 
 type Dependent = {
   id: string;
@@ -31,6 +39,7 @@ type CareSession = {
   status: SessionStatus;
   starts_at: string | null;
   ends_at: string | null;
+  planned_actions: PlannedAction[];
   created_at: string;
 };
 
@@ -43,6 +52,8 @@ type SessionForm = {
   starts_at: string;
   ends_at: string;
   notes: string;
+  planned_action_types: PlannedActionType[];
+  custom_instruction: string;
 };
 
 const filters: Array<{ value: ScheduleFilter; label: string }> = [
@@ -58,6 +69,14 @@ const navItems = [
   { label: "Care Log", icon: "\u25A1", href: "/care-log" },
   { label: "Messages", icon: "\u25CD", href: "/messages" },
   { label: "Profile", icon: "\u2659", href: "/profile" },
+];
+
+const plannedActionOptions: Array<{ type: Exclude<PlannedActionType, "custom">; label: string }> = [
+  { type: "meal", label: "Meal" },
+  { type: "nap", label: "Nap" },
+  { type: "walk", label: "Walk" },
+  { type: "medicine", label: "Medicine" },
+  { type: "activity", label: "Activity" },
 ];
 
 const typeConfig: Record<
@@ -213,7 +232,34 @@ function getDefaultForm(dependentId = ""): SessionForm {
     starts_at: toDateTimeLocalValue(start),
     ends_at: toDateTimeLocalValue(end),
     notes: "",
+    planned_action_types: [],
+    custom_instruction: "",
   };
+}
+
+function buildPlannedActions(actionTypes: PlannedActionType[], customInstruction: string): PlannedAction[] {
+  const actions: PlannedAction[] = actionTypes
+    .filter((type): type is Exclude<PlannedActionType, "custom"> => type !== "custom")
+    .map((type) => {
+      const option = plannedActionOptions.find((item) => item.type === type);
+      return {
+        id: type,
+        type,
+        label: option?.label || type,
+      };
+    });
+
+  const trimmedCustomInstruction = customInstruction.trim();
+  if (trimmedCustomInstruction) {
+    actions.push({
+      id: `custom-${Date.now()}`,
+      type: "custom",
+      label: "Custom care instruction",
+      notes: trimmedCustomInstruction,
+    });
+  }
+
+  return actions;
 }
 
 function formatTimeRange(startValue: string | null, endValue: string | null) {
@@ -293,7 +339,7 @@ export default function SchedulePage() {
     const { start, end } = getTodayRange();
     const { data: sessionsData } = await supabase
       .from("care_sessions")
-      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, created_at")
+      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, created_at")
       .eq("family_id", familyData.id)
       .gte("starts_at", start.toISOString())
       .lt("starts_at", end.toISOString())
@@ -332,6 +378,18 @@ export default function SchedulePage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function togglePlannedAction(type: PlannedActionType) {
+    setForm((current) => {
+      const isSelected = current.planned_action_types.includes(type);
+      return {
+        ...current,
+        planned_action_types: isSelected
+          ? current.planned_action_types.filter((item) => item !== type)
+          : [...current.planned_action_types, type],
+      };
+    });
+  }
+
   function openCreateForm() {
     setForm(getDefaultForm(form.dependent_id || dependents[0]?.id || ""));
     setMessage(null);
@@ -345,6 +403,7 @@ export default function SchedulePage() {
     const title = form.title.trim();
     const caregiverName = form.caregiver_name.trim();
     const notes = form.notes.trim();
+    const customInstruction = form.custom_instruction.trim();
     const startsAt = form.starts_at ? new Date(form.starts_at) : null;
     const endsAt = form.ends_at ? new Date(form.ends_at) : null;
 
@@ -375,6 +434,7 @@ export default function SchedulePage() {
       status: "scheduled",
       notes: notes || null,
       instructions: notes || null,
+      planned_actions: buildPlannedActions(form.planned_action_types, customInstruction),
     });
 
     setSaving(false);
@@ -638,6 +698,40 @@ export default function SchedulePage() {
                     />
                   </label>
 
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Planned Care</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                      {plannedActionOptions.map((option) => {
+                        const selected = form.planned_action_types.includes(option.type);
+
+                        return (
+                          <button
+                            key={option.type}
+                            type="button"
+                            onClick={() => togglePlannedAction(option.type)}
+                            className={`rounded-[20px] border px-4 py-3 text-left text-sm font-black transition ${
+                              selected
+                                ? "border-blue-200 bg-blue-50 text-[#2563EB]"
+                                : "border-blue-100 bg-white text-[#0F172A] hover:bg-blue-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Custom instruction optional</span>
+                    <input
+                      value={form.custom_instruction}
+                      onChange={(event) => updateForm("custom_instruction", event.target.value)}
+                      placeholder="Example: Practice reading before bedtime"
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+
                   <label className="block sm:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Notes optional</span>
                     <textarea
@@ -743,7 +837,7 @@ export default function SchedulePage() {
                             onClick={() => router.push(`/sessions/${session.id}`)}
                             className="mt-5 rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
                           >
-                            Open Session
+                            View Plan
                           </button>
                         </div>
                       </div>
