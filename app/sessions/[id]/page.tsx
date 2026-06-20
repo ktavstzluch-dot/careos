@@ -3,10 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { PlannedActionBadge, plannedActionOptions, type PlannedActionType } from "@/lib/plannedActions";
 
 type DependentType = "child" | "pet" | "elder";
 type SessionStatus = "scheduled" | "active" | "completed" | "cancelled";
-type PlannedActionType = "meal" | "nap" | "walk" | "medicine" | "activity" | "custom";
 
 type Family = {
   id: string;
@@ -56,14 +56,6 @@ type SessionForm = {
 
 const sessionSelect =
   "id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, notes, instructions, created_at";
-
-const plannedActionOptions: Array<{ type: Exclude<PlannedActionType, "custom">; label: string }> = [
-  { type: "meal", label: "Meal" },
-  { type: "nap", label: "Nap" },
-  { type: "walk", label: "Walk" },
-  { type: "medicine", label: "Medicine" },
-  { type: "activity", label: "Activity" },
-];
 
 const typeConfig: Record<DependentType, { label: string; avatarClass: string; badgeClass: string }> = {
   child: {
@@ -549,8 +541,7 @@ export default function SessionPlanPage() {
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {plannedActions.map((action) => (
                   <div key={action.id} className="rounded-[24px] bg-[#F8FAFC] p-4">
-                    <p className="text-sm font-black text-[#0F172A]">{action.label}</p>
-                    {action.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{action.notes}</p>}
+                    <PlannedActionBadge type={action.type} label={action.label} notes={action.notes} />
                   </div>
                 ))}
               </div>
@@ -632,13 +623,9 @@ export default function SessionPlanPage() {
                             key={option.type}
                             type="button"
                             onClick={() => togglePlannedAction(option.type)}
-                            className={`rounded-[20px] border px-4 py-3 text-left text-sm font-black transition ${
-                              selected
-                                ? "border-blue-200 bg-blue-50 text-[#2563EB]"
-                                : "border-blue-100 bg-white text-[#0F172A] hover:bg-blue-50"
-                            }`}
+                            className="text-left"
                           >
-                            {option.label}
+                            <PlannedActionBadge type={option.type} label={option.label} selected={selected} />
                           </button>
                         );
                       })}
@@ -647,6 +634,9 @@ export default function SessionPlanPage() {
 
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Custom instruction optional</span>
+                    <span className="mt-3 inline-flex">
+                      <PlannedActionBadge type="custom" label="Custom care instruction" selected={Boolean(form.custom_instruction.trim())} />
+                    </span>
                     <input
                       value={form.custom_instruction}
                       onChange={(event) => updateForm("custom_instruction", event.target.value)}

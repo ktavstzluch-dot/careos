@@ -4,10 +4,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getProfileFromUser } from "@/lib/profile";
+import { PlannedActionBadge, plannedActionOptions, type PlannedActionType } from "@/lib/plannedActions";
 
 type DependentType = "child" | "pet" | "elder";
 type SessionStatus = "scheduled" | "active" | "completed" | "cancelled";
-type PlannedActionType = "meal" | "nap" | "walk" | "medicine" | "activity" | "custom";
 
 type PlannedAction = {
   id: string;
@@ -69,14 +69,6 @@ const navItems = [
   { label: "Care Log", icon: "\u25A1", href: "/care-log" },
   { label: "Messages", icon: "\u25CD", href: "/messages" },
   { label: "Profile", icon: "\u2659", href: "/profile" },
-];
-
-const plannedActionOptions: Array<{ type: Exclude<PlannedActionType, "custom">; label: string }> = [
-  { type: "meal", label: "Meal" },
-  { type: "nap", label: "Nap" },
-  { type: "walk", label: "Walk" },
-  { type: "medicine", label: "Medicine" },
-  { type: "activity", label: "Activity" },
 ];
 
 const typeConfig: Record<
@@ -186,10 +178,27 @@ function CareOSLogo() {
   );
 }
 
-function getWeekDays() {
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(today.getDate() - 3);
+function startOfLocalDay(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isSameLocalDate(first: Date, second: Date) {
+  return getLocalDateKey(first) === getLocalDateKey(second);
+}
+
+function getWeekDays(baseDate = new Date()) {
+  const today = startOfLocalDay(new Date());
+  const start = startOfLocalDay(baseDate);
+  start.setDate(start.getDate() - 3);
 
   return Array.from({ length: 7 }).map((_, index) => {
     const date = new Date(start);
@@ -197,20 +206,31 @@ function getWeekDays() {
 
     return {
       day: new Intl.DateTimeFormat("en", { weekday: "short" }).format(date),
-      date: date.getDate(),
-      active: date.toDateString() === today.toDateString(),
+      date,
+      dateKey: getLocalDateKey(date),
+      dayNumber: date.getDate(),
+      isToday: isSameLocalDate(date, today),
     };
   });
 }
 
-function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(start.getDate() + 1);
+function getVisibleWeekRange(weekDays: Array<{ date: Date }>) {
+  const start = startOfLocalDay(weekDays[0]?.date || new Date());
+  const end = startOfLocalDay(weekDays[weekDays.length - 1]?.date || new Date());
+  end.setDate(end.getDate() + 1);
 
   return { start, end };
+}
+
+function getSelectedCarePlanHeading(selectedDate: Date) {
+  const today = startOfLocalDay(new Date());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  if (isSameLocalDate(selectedDate, today)) return "Today's Care Plan";
+  if (isSameLocalDate(selectedDate, tomorrow)) return "Tomorrow's Care Plan";
+
+  return `${new Intl.DateTimeFormat("en", { month: "long", day: "numeric" }).format(selectedDate)} Care Plan`;
 }
 
 function toDateTimeLocalValue(date: Date) {
@@ -218,9 +238,15 @@ function toDateTimeLocalValue(date: Date) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-function getDefaultForm(dependentId = ""): SessionForm {
-  const start = new Date();
-  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
+function getDefaultForm(dependentId = "", selectedDate = new Date()): SessionForm {
+  const now = new Date();
+  const start = new Date(selectedDate);
+  if (isSameLocalDate(start, now)) {
+    start.setHours(now.getHours(), now.getMinutes(), 0, 0);
+    start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15, 0, 0);
+  } else {
+    start.setHours(9, 0, 0, 0);
+  }
 
   const end = new Date(start);
   end.setHours(start.getHours() + 1);
@@ -283,6 +309,7 @@ export default function SchedulePage() {
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [sessions, setSessions] = useState<CareSession[]>([]);
   const [activeFilter, setActiveFilter] = useState<ScheduleFilter>("all");
+  const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -290,6 +317,7 @@ export default function SchedulePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [form, setForm] = useState<SessionForm>(() => getDefaultForm());
+  const weekDays = useMemo(() => getWeekDays(), []);
 
   async function loadSchedule() {
     setLoading(true);
@@ -336,7 +364,7 @@ export default function SchedulePage() {
       dependent_id: current.dependent_id || loadedDependents[0]?.id || "",
     }));
 
-    const { start, end } = getTodayRange();
+    const { start, end } = getVisibleWeekRange(weekDays);
     const { data: sessionsData } = await supabase
       .from("care_sessions")
       .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, created_at")
@@ -355,7 +383,6 @@ export default function SchedulePage() {
   }, []);
 
   const initials = displayName.slice(0, 1).toUpperCase();
-  const weekDays = useMemo(() => getWeekDays(), []);
 
   const dependentById = useMemo(() => {
     return dependents.reduce<Record<string, Dependent>>((acc, dependent) => {
@@ -365,9 +392,24 @@ export default function SchedulePage() {
   }, [dependents]);
 
   const visibleSessions = useMemo(() => {
-    if (activeFilter === "all") return sessions;
-    return sessions.filter((session) => dependentById[session.dependent_id]?.type === activeFilter);
-  }, [activeFilter, dependentById, sessions]);
+    return sessions.filter((session) => {
+      const startsAt = session.starts_at ? new Date(session.starts_at) : null;
+      const matchesDate = startsAt ? isSameLocalDate(startsAt, selectedDate) : false;
+      const matchesFilter = activeFilter === "all" || dependentById[session.dependent_id]?.type === activeFilter;
+      return matchesDate && matchesFilter;
+    });
+  }, [activeFilter, dependentById, selectedDate, sessions]);
+
+  const sessionDates = useMemo(() => {
+    return sessions.reduce<Record<string, number>>((acc, session) => {
+      if (!session.starts_at) return acc;
+      const key = getLocalDateKey(new Date(session.starts_at));
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  }, [sessions]);
+
+  const selectedCarePlanHeading = getSelectedCarePlanHeading(selectedDate);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -391,7 +433,7 @@ export default function SchedulePage() {
   }
 
   function openCreateForm() {
-    setForm(getDefaultForm(form.dependent_id || dependents[0]?.id || ""));
+    setForm(getDefaultForm(form.dependent_id || dependents[0]?.id || "", selectedDate));
     setMessage(null);
     setMessageType(null);
     setShowCreateForm(true);
@@ -445,9 +487,9 @@ export default function SchedulePage() {
       return;
     }
 
-    setMessage("Session created. Today's Care Plan is updated.");
+    setMessage("Session created. Care Plan is updated.");
     setMessageType("success");
-    setForm(getDefaultForm(form.dependent_id));
+    setForm(getDefaultForm(form.dependent_id, selectedDate));
     setShowCreateForm(false);
     await loadSchedule();
   }
@@ -532,7 +574,7 @@ export default function SchedulePage() {
                   ←
                 </button>
                 <p className="text-sm font-semibold text-[#64748B]">Schedule</p>
-                <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Today&apos;s Care Plan</h1>
+                <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care Plan</h1>
                 <p className="mt-3 max-w-xl text-base leading-7 text-[#64748B]">
                   Plan the care that keeps your family feeling safe and connected.
                 </p>
@@ -575,17 +617,33 @@ export default function SchedulePage() {
               </div>
 
               <div className="mt-5 grid grid-cols-7 gap-2">
-                {weekDays.map((item) => (
-                  <button
-                    key={`${item.day}-${item.date}`}
-                    className={`rounded-2xl px-2 py-3 text-center transition ${
-                      item.active ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200" : "bg-white text-[#64748B]"
-                    }`}
-                  >
-                    <div className="text-xs font-semibold">{item.day}</div>
-                    <div className="mt-2 text-sm font-black">{item.date}</div>
-                  </button>
-                ))}
+                {weekDays.map((item) => {
+                  const selected = isSameLocalDate(item.date, selectedDate);
+                  const hasSessions = Boolean(sessionDates[item.dateKey]);
+
+                  return (
+                    <button
+                      key={item.dateKey}
+                      type="button"
+                      onClick={() => setSelectedDate(startOfLocalDay(item.date))}
+                      className={`rounded-2xl px-2 py-3 text-center transition ${
+                        selected
+                          ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
+                          : item.isToday
+                            ? "bg-white text-[#2563EB] ring-1 ring-blue-200"
+                            : "bg-white text-[#64748B] hover:bg-blue-50 hover:text-[#2563EB]"
+                      }`}
+                    >
+                      <div className="text-xs font-semibold">{item.day}</div>
+                      <div className="mt-2 text-sm font-black">{item.dayNumber}</div>
+                      <span
+                        className={`mx-auto mt-2 block h-1.5 w-1.5 rounded-full ${
+                          hasSessions ? (selected ? "bg-white" : "bg-[#2563EB]") : "bg-transparent"
+                        }`}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -600,8 +658,10 @@ export default function SchedulePage() {
           <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-[#64748B]">Today</p>
-                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today&apos;s Care Plan</h2>
+                <p className="text-sm font-semibold text-[#64748B]">
+                  {new Intl.DateTimeFormat("en", { weekday: "long", month: "long", day: "numeric" }).format(selectedDate)}
+                </p>
+                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">{selectedCarePlanHeading}</h2>
               </div>
               <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                 {family?.name}
@@ -709,13 +769,9 @@ export default function SchedulePage() {
                             key={option.type}
                             type="button"
                             onClick={() => togglePlannedAction(option.type)}
-                            className={`rounded-[20px] border px-4 py-3 text-left text-sm font-black transition ${
-                              selected
-                                ? "border-blue-200 bg-blue-50 text-[#2563EB]"
-                                : "border-blue-100 bg-white text-[#0F172A] hover:bg-blue-50"
-                            }`}
+                            className="text-left"
                           >
-                            {option.label}
+                            <PlannedActionBadge type={option.type} label={option.label} selected={selected} />
                           </button>
                         );
                       })}
@@ -724,6 +780,9 @@ export default function SchedulePage() {
 
                   <label className="block sm:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Custom instruction optional</span>
+                    <span className="mt-3 inline-flex">
+                      <PlannedActionBadge type="custom" label="Custom care instruction" selected={Boolean(form.custom_instruction.trim())} />
+                    </span>
                     <input
                       value={form.custom_instruction}
                       onChange={(event) => updateForm("custom_instruction", event.target.value)}
@@ -763,8 +822,8 @@ export default function SchedulePage() {
                     <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
                   </svg>
                 </div>
-                <p className="mt-4 font-semibold text-[#0F172A]">No care planned today</p>
-                <p className="mt-2 text-sm text-[#64748B]">Create the first session to start building your Care Story.</p>
+                <p className="mt-4 font-semibold text-[#0F172A]">No care planned for this day</p>
+                <p className="mt-2 text-sm text-[#64748B]">Create a session to start building your Care Story.</p>
                 <button
                   onClick={openCreateForm}
                   className="mt-5 rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
