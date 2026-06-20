@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 type DependentType = "child" | "pet" | "elder";
 type SessionStatus = "scheduled" | "active" | "completed" | "cancelled";
+type PlannedActionType = "meal" | "nap" | "walk" | "medicine" | "activity" | "custom";
 
 type Family = {
   id: string;
@@ -20,6 +21,13 @@ type Dependent = {
   photo_url: string | null;
 };
 
+type PlannedAction = {
+  id: string;
+  type: PlannedActionType;
+  label: string;
+  notes?: string;
+};
+
 type CareSession = {
   id: string;
   family_id: string;
@@ -30,27 +38,34 @@ type CareSession = {
   status: SessionStatus;
   starts_at: string | null;
   ends_at: string | null;
+  planned_actions: PlannedAction[];
+  notes: string | null;
+  instructions: string | null;
   created_at: string;
 };
 
-type CareMoment = {
-  id: string;
-  family_id: string;
-  session_id: string;
-  dependent_id: string;
-  note: string | null;
-  photo_url: string | null;
-  created_at: string;
+type SessionForm = {
+  title: string;
+  caregiver_name: string;
+  starts_at: string;
+  ends_at: string;
+  notes: string;
+  planned_action_types: PlannedActionType[];
+  custom_instruction: string;
 };
 
-const typeConfig: Record<
-  DependentType,
-  {
-    label: string;
-    avatarClass: string;
-    badgeClass: string;
-  }
-> = {
+const sessionSelect =
+  "id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, notes, instructions, created_at";
+
+const plannedActionOptions: Array<{ type: Exclude<PlannedActionType, "custom">; label: string }> = [
+  { type: "meal", label: "Meal" },
+  { type: "nap", label: "Nap" },
+  { type: "walk", label: "Walk" },
+  { type: "medicine", label: "Medicine" },
+  { type: "activity", label: "Activity" },
+];
+
+const typeConfig: Record<DependentType, { label: string; avatarClass: string; badgeClass: string }> = {
   child: {
     label: "Child",
     avatarClass: "bg-violet-50 text-violet-700",
@@ -68,14 +83,7 @@ const typeConfig: Record<
   },
 };
 
-const statusConfig: Record<
-  SessionStatus,
-  {
-    label: string;
-    dotClass: string;
-    badgeClass: string;
-  }
-> = {
+const statusConfig: Record<SessionStatus, { label: string; dotClass: string; badgeClass: string }> = {
   scheduled: {
     label: "Confirmed",
     dotClass: "bg-[#22C55E]",
@@ -134,6 +142,8 @@ function formatTimeRange(startValue: string | null, endValue: string | null) {
   if (!startValue || !endValue) return "Time to be confirmed";
 
   const formatter = new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -141,14 +151,58 @@ function formatTimeRange(startValue: string | null, endValue: string | null) {
   return `${formatter.format(new Date(startValue))} - ${formatter.format(new Date(endValue))}`;
 }
 
-function formatMomentTime(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
+function toDateTimeLocalValue(value: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-export default function LiveSessionPage() {
+function buildPlannedActions(actionTypes: PlannedActionType[], customInstruction: string): PlannedAction[] {
+  const actions: PlannedAction[] = actionTypes
+    .filter((type): type is Exclude<PlannedActionType, "custom"> => type !== "custom")
+    .map((type) => {
+      const option = plannedActionOptions.find((item) => item.type === type);
+      return {
+        id: type,
+        type,
+        label: option?.label || type,
+      };
+    });
+
+  const trimmedCustomInstruction = customInstruction.trim();
+  if (trimmedCustomInstruction) {
+    actions.push({
+      id: `custom-${Date.now()}`,
+      type: "custom",
+      label: "Custom care instruction",
+      notes: trimmedCustomInstruction,
+    });
+  }
+
+  return actions;
+}
+
+function getFormFromSession(session: CareSession): SessionForm {
+  const plannedActions = Array.isArray(session.planned_actions) ? session.planned_actions : [];
+  const plannedActionTypes = plannedActions
+    .filter((action) => action.type !== "custom")
+    .map((action) => action.type);
+  const customInstruction = plannedActions.find((action) => action.type === "custom")?.notes || "";
+
+  return {
+    title: session.title || "",
+    caregiver_name: session.caregiver_name || "",
+    starts_at: toDateTimeLocalValue(session.starts_at),
+    ends_at: toDateTimeLocalValue(session.ends_at),
+    notes: session.notes || session.instructions || "",
+    planned_action_types: plannedActionTypes,
+    custom_instruction: customInstruction,
+  };
+}
+
+export default function SessionPlanPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -156,14 +210,20 @@ export default function LiveSessionPage() {
   const [family, setFamily] = useState<Family | null>(null);
   const [session, setSession] = useState<CareSession | null>(null);
   const [dependent, setDependent] = useState<Dependent | null>(null);
-  const [moments, setMoments] = useState<CareMoment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [sharingMoment, setSharingMoment] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
-  const [momentNote, setMomentNote] = useState("");
-  const [momentPhotoUrl, setMomentPhotoUrl] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<SessionForm>({
+    title: "",
+    caregiver_name: "",
+    starts_at: "",
+    ends_at: "",
+    notes: "",
+    planned_action_types: [],
+    custom_instruction: "",
+  });
 
   async function loadSession() {
     setLoading(true);
@@ -185,7 +245,6 @@ export default function LiveSessionPage() {
       setFamily(null);
       setSession(null);
       setDependent(null);
-      setMoments([]);
       setLoading(false);
       return;
     }
@@ -194,7 +253,7 @@ export default function LiveSessionPage() {
 
     const { data: sessionData } = await supabase
       .from("care_sessions")
-      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, created_at")
+      .select(sessionSelect)
       .eq("id", sessionId)
       .eq("family_id", familyData.id)
       .maybeSingle();
@@ -202,13 +261,16 @@ export default function LiveSessionPage() {
     if (!sessionData) {
       setSession(null);
       setDependent(null);
-      setMoments([]);
       setLoading(false);
       return;
     }
 
     const loadedSession = sessionData as CareSession;
+    loadedSession.planned_actions = Array.isArray(loadedSession.planned_actions)
+      ? loadedSession.planned_actions
+      : [];
     setSession(loadedSession);
+    setForm(getFormFromSession(loadedSession));
 
     const { data: dependentData } = await supabase
       .from("dependents")
@@ -218,15 +280,6 @@ export default function LiveSessionPage() {
       .maybeSingle();
 
     setDependent((dependentData || null) as Dependent | null);
-
-    const { data: momentsData } = await supabase
-      .from("care_moments")
-      .select("id, family_id, session_id, dependent_id, note, photo_url, created_at")
-      .eq("family_id", familyData.id)
-      .eq("session_id", loadedSession.id)
-      .order("created_at", { ascending: false });
-
-    setMoments((momentsData || []) as CareMoment[]);
     setLoading(false);
   }
 
@@ -239,81 +292,134 @@ export default function LiveSessionPage() {
   const typeStyle = typeConfig[type];
   const statusStyle = session ? statusConfig[session.status] : statusConfig.scheduled;
   const initial = useMemo(() => dependent?.name.slice(0, 1).toUpperCase() || "C", [dependent]);
+  const instructions = session?.notes || session?.instructions || "";
+  const plannedActions = Array.isArray(session?.planned_actions) ? session.planned_actions : [];
 
-  async function updateSessionStatus(nextStatus: SessionStatus) {
+  function updateForm(field: keyof SessionForm, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function togglePlannedAction(type: PlannedActionType) {
+    setForm((current) => {
+      const isSelected = current.planned_action_types.includes(type);
+      return {
+        ...current,
+        planned_action_types: isSelected
+          ? current.planned_action_types.filter((item) => item !== type)
+          : [...current.planned_action_types, type],
+      };
+    });
+  }
+
+  function startEditing() {
+    if (!session || session.status === "cancelled") return;
+    setForm(getFormFromSession(session));
+    setEditing(true);
+    setMessage(null);
+    setMessageType(null);
+  }
+
+  async function saveSessionPlan(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
     if (!session || !family) return;
 
-    setActionLoading(true);
+    const title = form.title.trim();
+    const caregiverName = form.caregiver_name.trim();
+    const notes = form.notes.trim();
+    const startsAt = form.starts_at ? new Date(form.starts_at) : null;
+    const endsAt = form.ends_at ? new Date(form.ends_at) : null;
+
+    if (!title || !caregiverName || !startsAt || !endsAt) {
+      setMessage("Please complete the session plan before saving.");
+      setMessageType("error");
+      return;
+    }
+
+    if (endsAt <= startsAt) {
+      setMessage("End time must be after start time.");
+      setMessageType("error");
+      return;
+    }
+
+    setSaving(true);
     setMessage(null);
     setMessageType(null);
 
     const { data, error } = await supabase
       .from("care_sessions")
-      .update({ status: nextStatus })
+      .update({
+        title,
+        care_type: title,
+        caregiver_name: caregiverName,
+        starts_at: startsAt.toISOString(),
+        ends_at: endsAt.toISOString(),
+        notes: notes || null,
+        instructions: notes || null,
+        planned_actions: buildPlannedActions(form.planned_action_types, form.custom_instruction),
+      })
       .eq("id", session.id)
       .eq("family_id", family.id)
-      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, created_at")
+      .select(sessionSelect)
       .maybeSingle();
 
-    setActionLoading(false);
+    setSaving(false);
 
     if (error || !data) {
-      setMessage(error?.message || "Session could not be updated.");
+      setMessage(error?.message || "Session plan could not be saved.");
       setMessageType("error");
       return;
     }
 
-    setSession(data as CareSession);
-    setMessage(nextStatus === "active" ? "Session started." : "Session completed.");
+    const updatedSession = data as CareSession;
+    updatedSession.planned_actions = Array.isArray(updatedSession.planned_actions)
+      ? updatedSession.planned_actions
+      : [];
+    setSession(updatedSession);
+    setForm(getFormFromSession(updatedSession));
+    setEditing(false);
+    setMessage("Session plan saved.");
     setMessageType("success");
   }
 
-  async function handleShareMoment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function cancelSession() {
+    if (!session || !family) return;
 
-    if (!session || !family || !dependent) return;
-
-    const note = momentNote.trim();
-    const photoUrl = momentPhotoUrl.trim();
-
-    if (!note && !photoUrl) {
-      setMessage("Add a note or photo URL before sharing a Moment.");
-      setMessageType("error");
-      return;
-    }
-
-    setSharingMoment(true);
+    setSaving(true);
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase.from("care_moments").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      note: note || null,
-      photo_url: photoUrl || null,
-    });
+    const { data, error } = await supabase
+      .from("care_sessions")
+      .update({ status: "cancelled" })
+      .eq("id", session.id)
+      .eq("family_id", family.id)
+      .select(sessionSelect)
+      .maybeSingle();
 
-    setSharingMoment(false);
+    setSaving(false);
 
-    if (error) {
-      setMessage(error.message || "Moment could not be shared.");
+    if (error || !data) {
+      setMessage(error?.message || "Session could not be cancelled.");
       setMessageType("error");
       return;
     }
 
-    setMomentNote("");
-    setMomentPhotoUrl("");
-    setMessage("Moment shared with the family.");
+    const updatedSession = data as CareSession;
+    updatedSession.planned_actions = Array.isArray(updatedSession.planned_actions)
+      ? updatedSession.planned_actions
+      : [];
+    setSession(updatedSession);
+    setEditing(false);
+    setMessage("Session cancelled.");
     setMessageType("success");
-    await loadSession();
   }
 
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
         <div className="rounded-[28px] border border-blue-100 bg-white px-8 py-6 shadow-sm">
-          <p className="text-sm font-medium text-[#64748B]">Loading Session...</p>
+          <p className="text-sm font-medium text-[#64748B]">Loading Care Session...</p>
         </div>
       </main>
     );
@@ -329,7 +435,7 @@ export default function LiveSessionPage() {
           >
             ←
           </button>
-          <h1 className="text-3xl font-black tracking-tight text-[#0F172A]">Session not found</h1>
+          <h1 className="text-3xl font-black tracking-tight text-[#0F172A]">Care Session not found</h1>
           <p className="mt-3 text-sm leading-6 text-[#64748B]">
             This care session may have been removed or is no longer available.
           </p>
@@ -340,7 +446,7 @@ export default function LiveSessionPage() {
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-16 text-[#0F172A]">
-      <section className="mx-auto max-w-5xl px-5 py-7 md:py-10">
+      <section className="mx-auto max-w-6xl px-5 py-7 md:py-10">
         <button
           onClick={() => router.push("/schedule")}
           className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#0F172A] shadow-sm ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-[#2563EB]"
@@ -349,15 +455,15 @@ export default function LiveSessionPage() {
         </button>
 
         <div className="mb-6">
-          <p className="text-sm font-semibold text-[#64748B]">Session</p>
-          <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Live Session</h1>
+          <p className="text-sm font-semibold text-[#64748B]">Session Plan</p>
+          <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care Session</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#64748B]">
-            Keep the family connected with calm, real-time care updates.
+            Review the plan before care begins.
           </p>
         </div>
 
         <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
             {dependent.photo_url ? (
               <img src={dependent.photo_url} alt={dependent.name} className="h-20 w-20 rounded-[26px] object-cover" />
             ) : (
@@ -391,7 +497,7 @@ export default function LiveSessionPage() {
                   <p className="mt-1 text-sm font-black text-[#0F172A]">{session.caregiver_name || "Caregiver"}</p>
                 </div>
                 <div className="rounded-[22px] bg-[#F8FAFC] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Care time</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Planned care time</p>
                   <p className="mt-1 text-sm font-black text-[#0F172A]">{formatTimeRange(session.starts_at, session.ends_at)}</p>
                 </div>
               </div>
@@ -409,126 +515,179 @@ export default function LiveSessionPage() {
           </div>
         )}
 
-        <section className="mt-6 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-          {session.status === "scheduled" && (
-            <div>
-              <h2 className="text-2xl font-black text-[#0F172A]">Ready to begin</h2>
+        {session.status === "cancelled" && (
+          <section className="mt-6 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+            <div className="rounded-[30px] bg-slate-50 p-5">
+              <h2 className="text-2xl font-black text-[#0F172A]">This care session has been cancelled.</h2>
+              <p className="mt-2 text-sm leading-6 text-[#64748B]">The plan is still visible for reference.</p>
+            </div>
+          </section>
+        )}
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.72fr]">
+          <div className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#64748B]">Planned Care</p>
+                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Session Plan</h2>
+              </div>
+              {session.status !== "cancelled" && (
+                <button
+                  onClick={editing ? () => setEditing(false) : startEditing}
+                  className="rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
+                >
+                  {editing ? "Cancel" : "Edit Session"}
+                </button>
+              )}
+            </div>
+
+            {plannedActions.length === 0 ? (
+              <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                <p className="font-semibold text-[#0F172A]">No planned care actions yet</p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {plannedActions.map((action) => (
+                  <div key={action.id} className="rounded-[24px] bg-[#F8FAFC] p-4">
+                    <p className="text-sm font-black text-[#0F172A]">{action.label}</p>
+                    {action.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{action.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 rounded-[28px] bg-[#F8FAFC] p-5">
+              <p className="text-sm font-semibold text-[#64748B]">Care Instructions</p>
+              <p className="mt-2 text-sm leading-6 text-[#0F172A]">
+                {instructions.trim() || "No extra instructions added."}
+              </p>
+            </div>
+
+            <div className="mt-6 rounded-[28px] bg-gradient-to-br from-emerald-50 to-blue-50 p-5">
+              <h3 className="text-lg font-black text-[#0F172A]">Open Care Log</h3>
               <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                Start the session when care begins so the family can follow along.
+                Care Log will use this plan when care begins.
               </p>
               <button
-                onClick={() => updateSessionStatus("active")}
-                disabled={actionLoading}
-                className="mt-5 rounded-[22px] bg-[#22C55E] px-6 py-3 text-sm font-black text-white shadow-lg shadow-emerald-100 transition hover:bg-[#16A34A] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                onClick={() => router.push("/care-log")}
+                className="mt-4 rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
               >
-                {actionLoading ? "Starting..." : "Start Session"}
+                Open Care Log
               </button>
             </div>
-          )}
-
-          {session.status === "active" && (
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.72fr]">
-              <form onSubmit={handleShareMoment} className="rounded-[30px] bg-[#F8FAFC] p-5">
-                <h2 className="text-2xl font-black text-[#0F172A]">Share Moment</h2>
-                <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                  Share a small care update so the family feels connected.
-                </p>
-                <label className="mt-5 block">
-                  <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Care Update</span>
-                  <textarea
-                    value={momentNote}
-                    onChange={(event) => setMomentNote(event.target.value)}
-                    placeholder="What is happening right now?"
-                    className="mt-2 min-h-28 w-full rounded-[22px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                  />
-                </label>
-                <label className="mt-4 block">
-                  <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Optional photo URL</span>
-                  <input
-                    value={momentPhotoUrl}
-                    onChange={(event) => setMomentPhotoUrl(event.target.value)}
-                    placeholder="https://..."
-                    className="mt-2 w-full rounded-[22px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={sharingMoment}
-                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                >
-                  {sharingMoment ? "Sharing..." : "Share Moment"}
-                </button>
-              </form>
-
-              <div className="rounded-[30px] bg-gradient-to-br from-emerald-50 to-blue-50 p-5">
-                <h2 className="text-2xl font-black text-[#0F172A]">Complete Session</h2>
-                <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                  When care is finished, complete the session and keep the Moments visible for review.
-                </p>
-                <button
-                  onClick={() => updateSessionStatus("completed")}
-                  disabled={actionLoading}
-                  className="mt-5 rounded-[22px] bg-[#EF4444] px-6 py-3 text-sm font-black text-white shadow-lg shadow-red-100 transition hover:bg-red-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                >
-                  {actionLoading ? "Completing..." : "Complete Session"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {session.status === "completed" && (
-            <div className="rounded-[30px] bg-emerald-50 p-5">
-              <h2 className="text-2xl font-black text-[#0F172A]">Session completed</h2>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">Your Care Story is ready to review.</p>
-            </div>
-          )}
-
-          {session.status === "cancelled" && (
-            <div className="rounded-[30px] bg-slate-50 p-5">
-              <h2 className="text-2xl font-black text-[#0F172A]">Session cancelled</h2>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">This care session is no longer active.</p>
-            </div>
-          )}
-        </section>
-
-        <section className="mt-6 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-[#64748B]">Care Story</p>
-              <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Moments</h2>
-            </div>
-            <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
-              {moments.length} shared
-            </span>
           </div>
 
-          {moments.length === 0 ? (
-            <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-              <p className="font-semibold text-[#0F172A]">No moments shared yet</p>
-              <p className="mt-2 text-sm text-[#64748B]">Start by sharing a small update from this care session.</p>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-4">
-              {moments.map((moment) => (
-                <article key={moment.id} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-black text-[#0F172A]">Moment</p>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#64748B]">
-                      {formatMomentTime(moment.created_at)}
-                    </span>
-                  </div>
-                  {moment.photo_url && (
-                    <img
-                      src={moment.photo_url}
-                      alt={moment.note || "Shared Moment"}
-                      className="mt-4 max-h-80 w-full rounded-[24px] object-cover"
+          <div className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+            {editing ? (
+              <form onSubmit={saveSessionPlan}>
+                <h2 className="text-2xl font-black text-[#0F172A]">Edit Session</h2>
+                <div className="mt-5 space-y-4">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Title</span>
+                    <input
+                      value={form.title}
+                      onChange={(event) => updateForm("title", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
                     />
-                  )}
-                  {moment.note && <p className="mt-4 text-sm leading-6 text-[#0F172A]">{moment.note}</p>}
-                </article>
-              ))}
-            </div>
-          )}
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Caregiver name</span>
+                    <input
+                      value={form.caregiver_name}
+                      onChange={(event) => updateForm("caregiver_name", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Start date/time</span>
+                    <input
+                      type="datetime-local"
+                      value={form.starts_at}
+                      onChange={(event) => updateForm("starts_at", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">End date/time</span>
+                    <input
+                      type="datetime-local"
+                      value={form.ends_at}
+                      onChange={(event) => updateForm("ends_at", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      required
+                    />
+                  </label>
+
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Planned Care</p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {plannedActionOptions.map((option) => {
+                        const selected = form.planned_action_types.includes(option.type);
+
+                        return (
+                          <button
+                            key={option.type}
+                            type="button"
+                            onClick={() => togglePlannedAction(option.type)}
+                            className={`rounded-[20px] border px-4 py-3 text-left text-sm font-black transition ${
+                              selected
+                                ? "border-blue-200 bg-blue-50 text-[#2563EB]"
+                                : "border-blue-100 bg-white text-[#0F172A] hover:bg-blue-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Custom instruction optional</span>
+                    <input
+                      value={form.custom_instruction}
+                      onChange={(event) => updateForm("custom_instruction", event.target.value)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Care Instructions</span>
+                    <textarea
+                      value={form.notes}
+                      onChange={(event) => updateForm("notes", event.target.value)}
+                      className="mt-2 min-h-28 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="mt-5 w-full rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                >
+                  {saving ? "Saving..." : "Save Session Plan"}
+                </button>
+              </form>
+            ) : (
+              <div>
+                <h2 className="text-2xl font-black text-[#0F172A]">Plan actions</h2>
+                <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                  Adjust the planned care before it begins, or cancel the care session if plans change.
+                </p>
+                {session.status !== "cancelled" && (
+                  <button
+                    onClick={cancelSession}
+                    disabled={saving}
+                    className="mt-6 w-full rounded-[22px] border border-red-100 bg-red-50 px-6 py-3 text-sm font-black text-[#EF4444] transition hover:bg-[#EF4444] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    {saving ? "Cancelling..." : "Cancel Session"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </section>
       </section>
     </main>
