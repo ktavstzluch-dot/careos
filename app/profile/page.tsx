@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getDisplayNameFromUser, getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
 
@@ -96,14 +97,6 @@ function CareOSLogo() {
   );
 }
 
-function getDisplayName(email?: string) {
-  if (!email) return "Tigran";
-  if (email.toLowerCase().includes("tigerkazaryan")) return "Tigran";
-  const first = email.split("@")[0];
-  if (first.toLowerCase() === "mail") return "Tigran";
-  return first.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function getAge(dateOfBirth: string | null) {
   if (!dateOfBirth) return null;
   const birth = new Date(dateOfBirth);
@@ -169,12 +162,11 @@ export default function ProfilePage() {
     setEmail(userData.user.email);
 
     const metadata = userData.user.user_metadata || {};
-    const metadataName = getMetadataValue(metadata, "full_name") || getMetadataValue(metadata, "display_name");
-    const avatarUrl = getMetadataValue(metadata, "avatar_url");
+    const profile = getProfileFromUser(userData.user);
 
     setOwnerProfile({
-      displayName: metadataName.trim() || getDisplayName(userData.user.email),
-      avatarUrl,
+      displayName: profile.displayName,
+      avatarUrl: profile.avatarUrl,
       phone: getMetadataValue(metadata, "phone"),
       country: getMetadataValue(metadata, "country"),
       state: getMetadataValue(metadata, "state"),
@@ -240,7 +232,7 @@ export default function ProfilePage() {
   }, []);
 
   const displayName = useMemo(
-    () => ownerProfile.displayName.trim() || getDisplayName(email),
+    () => ownerProfile.displayName.trim() || getDisplayNameFromUser({ email }),
     [email, ownerProfile.displayName]
   );
   const initials = displayName.slice(0, 1).toUpperCase();

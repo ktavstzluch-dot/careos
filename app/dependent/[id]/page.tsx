@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
 
@@ -155,14 +156,6 @@ function CareOSLogo() {
   );
 }
 
-function getDisplayName(email?: string) {
-  if (!email) return "Tigran";
-  if (email.toLowerCase().includes("tigerkazaryan")) return "Tigran";
-  const first = email.split("@")[0];
-  if (first.toLowerCase() === "mail") return "Tigran";
-  return first.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function getAge(dateOfBirth: string | null) {
   if (!dateOfBirth) return null;
 
@@ -201,6 +194,8 @@ export default function DependentProfilePage() {
   const dependentId = params?.id;
 
   const [email, setEmail] = useState<string | undefined>("");
+  const [displayName, setDisplayName] = useState("CareOS Family");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [family, setFamily] = useState<Family | null>(null);
   const [dependent, setDependent] = useState<Dependent | null>(null);
   const [careLogs, setCareLogs] = useState<CareLog[]>([]);
@@ -226,7 +221,10 @@ export default function DependentProfilePage() {
       return;
     }
 
-    setEmail(userData.user.email);
+    const profile = getProfileFromUser(userData.user);
+    setEmail(profile.email);
+    setDisplayName(profile.displayName);
+    setAvatarUrl(profile.avatarUrl);
 
     if (!dependentId) {
       router.push("/dashboard");
@@ -279,7 +277,6 @@ export default function DependentProfilePage() {
     };
   }, [profilePhotoPreview]);
 
-  const displayName = useMemo(() => getDisplayName(email), [email]);
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const config = dependent ? typeConfig[dependent.type] : null;
@@ -570,9 +567,13 @@ export default function DependentProfilePage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
-                {initials}
-              </div>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-10 w-10 rounded-2xl object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
+                  {initials}
+                </div>
+              )}
               <div className="hidden text-left sm:block">
                 <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
                 <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>

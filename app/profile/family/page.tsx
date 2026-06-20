@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
 
@@ -90,13 +91,6 @@ function CareOSLogo() {
   );
 }
 
-function getDisplayName(email?: string) {
-  if (!email) return "Tigran";
-  const first = email.split("@")[0];
-  if (first.toLowerCase() === "mail") return "Tigran";
-  return first.replace(/[._-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function getAge(dateOfBirth: string | null) {
   if (!dateOfBirth) return null;
   const birth = new Date(dateOfBirth);
@@ -149,6 +143,7 @@ export default function ManageFamilyPage() {
 
   const [email, setEmail] = useState<string | undefined>("");
   const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [family, setFamily] = useState<Family | null>(null);
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -169,14 +164,10 @@ export default function ManageFamilyPage() {
       return;
     }
 
-    const metadata = userData.user.user_metadata || {};
-    const metadataName =
-      (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
-      (typeof metadata.display_name === "string" && metadata.display_name.trim()) ||
-      getDisplayName(userData.user.email);
-
-    setEmail(userData.user.email);
-    setDisplayName(metadataName);
+    const profile = getProfileFromUser(userData.user);
+    setEmail(profile.email);
+    setDisplayName(profile.displayName);
+    setAvatarUrl(profile.avatarUrl);
 
     const { data: familyData } = await supabase
       .from("families")
@@ -406,9 +397,13 @@ export default function ManageFamilyPage() {
               onClick={() => setAccountMenuOpen((open) => !open)}
               className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
-                {initials}
-              </div>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-10 w-10 rounded-2xl object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
+                  {initials}
+                </div>
+              )}
               <div className="hidden text-left sm:block">
                 <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
                 <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
