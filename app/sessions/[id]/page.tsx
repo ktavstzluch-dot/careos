@@ -560,7 +560,7 @@ export default function SessionPlanPage() {
                 Care Log will use this plan when care begins.
               </p>
               <button
-                onClick={() => router.push("/care-log")}
+                onClick={() => router.push(`/care-log/${session.id}`)}
                 className="mt-4 rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
               >
                 Open Care Log
