@@ -623,7 +623,7 @@ export default function SchedulePage() {
               ))}
             </div>
 
-            <div className="mt-8 rounded-[28px] bg-[#F8FAFC] p-5">
+            <div className="mt-6 rounded-[28px] bg-[#F8FAFC] p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#64748B]">This Month</p>
@@ -649,13 +649,13 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]">
+              <div className="mt-4 grid grid-cols-7 gap-1.5 text-center text-[10px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                   <div key={day}>{day}</div>
                 ))}
               </div>
 
-              <div className="mt-3 grid grid-cols-7 gap-2">
+              <div className="mt-2 grid grid-cols-7 gap-1.5">
                 {monthDays.map((item) => {
                   const selected = isSameLocalDate(item.date, selectedDate);
                   const hasSessions = Boolean(sessionDates[item.dateKey]);
@@ -670,7 +670,7 @@ export default function SchedulePage() {
                           setVisibleMonth(startOfLocalMonth(item.date));
                         }
                       }}
-                      className={`min-h-[68px] rounded-2xl px-2 py-3 text-center transition ${
+                      className={`min-h-[48px] rounded-2xl px-1.5 py-2 text-center transition ${
                         selected
                           ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
                           : item.isToday
@@ -680,9 +680,9 @@ export default function SchedulePage() {
                               : "bg-white/60 text-slate-300 hover:bg-blue-50 hover:text-[#2563EB]"
                       }`}
                     >
-                      <div className="text-sm font-black">{item.dayNumber}</div>
+                      <div className="text-sm font-black leading-none">{item.dayNumber}</div>
                       <span
-                        className={`mx-auto mt-2 block h-1.5 w-1.5 rounded-full ${
+                        className={`mx-auto mt-1.5 block h-1.5 w-1.5 rounded-full ${
                           hasSessions ? (selected ? "bg-white" : "bg-[#2563EB]") : "bg-transparent"
                         }`}
                       />
@@ -692,12 +692,6 @@ export default function SchedulePage() {
               </div>
             </div>
 
-            <button
-              onClick={openCreateForm}
-              className="mt-6 w-full rounded-[24px] bg-[#2563EB] px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
-            >
-              Create Session
-            </button>
           </section>
 
           <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
