@@ -111,7 +111,7 @@ const typeConfig: Record<
     avatar: "bg-emerald-50 text-[#22C55E]",
     chip: "bg-emerald-50 text-[#22C55E]",
     headline: "Pet care profile",
-    summary: "Walks, feeding, water, medicine, vet notes and photo reports.",
+    summary: "Walks, feeding, water, medicine, vet notes and shared Moments.",
     primaryCare: "Dog walk",
     fields: [
       { label: "Feeding", value: "Feeding instructions pending", icon: "🥣" },
@@ -156,6 +156,92 @@ function CareOSLogo() {
   );
 }
 
+function DependentTypeIcon({ type }: { type: DependentType }) {
+  if (type === "pet") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M8.5 10.5c1.1 0 2-1.2 2-2.7s-.9-2.8-2-2.8-2 1.2-2 2.8.9 2.7 2 2.7Z" />
+        <path d="M15.5 10.5c1.1 0 2-1.2 2-2.7S16.6 5 15.5 5s-2 1.2-2 2.8.9 2.7 2 2.7Z" />
+        <path d="M5.8 14.5c.9 0 1.7-1 1.7-2.2S6.7 10 5.8 10s-1.7 1-1.7 2.3.8 2.2 1.7 2.2Z" />
+        <path d="M18.2 14.5c.9 0 1.7-1 1.7-2.2s-.8-2.3-1.7-2.3-1.7 1-1.7 2.3.8 2.2 1.7 2.2Z" />
+        <path d="M7.8 17.5c0-2.1 1.9-3.7 4.2-3.7s4.2 1.6 4.2 3.7c0 1.2-.8 2-1.9 2-.9 0-1.4-.5-2.3-.5s-1.4.5-2.3.5c-1.1 0-1.9-.8-1.9-2Z" />
+      </svg>
+    );
+  }
+
+  if (type === "elder") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+        <path d="M4.5 20c1.4-3.2 4-5 7.5-5s6.1 1.8 7.5 5" />
+        <path d="M17.5 14.5 19 20" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+      <path d="M5 20c1.2-3.5 3.5-5.2 7-5.2s5.8 1.7 7 5.2" />
+      <path d="M8 12.5c.9 1 2.2 1.5 4 1.5s3.1-.5 4-1.5" />
+    </svg>
+  );
+}
+
+function CareDetailIcon({ label }: { label: string }) {
+  if (label.toLowerCase().includes("routine") || label.toLowerCase().includes("walking")) {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M6 18c2-3 4-4.5 6-4.5S16 15 18 18" />
+        <path d="M9 10a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" />
+      </svg>
+    );
+  }
+
+  if (label.toLowerCase().includes("medicine") || label.toLowerCase().includes("vet") || label.toLowerCase().includes("health")) {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="m8.2 15.8 7.6-7.6a3.4 3.4 0 0 1 4.8 4.8L13 20.6a3.4 3.4 0 0 1-4.8-4.8Z" />
+        <path d="m12 12 4 4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 4.5 19 8v5.5c0 3.4-2.7 5.8-7 7-4.3-1.2-7-3.6-7-7V8l7-3.5Z" />
+      <path d="m9 12 2 2 4-5" />
+    </svg>
+  );
+}
+
+function CareLogTypeIcon({ type }: { type: string }) {
+  if (type === "meal") {
+    return (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="13" cy="12" r="5" />
+        <path d="M5 5v14" />
+        <path d="M8 5v14" />
+      </svg>
+    );
+  }
+
+  if (type === "walk") {
+    return <DependentTypeIcon type="pet" />;
+  }
+
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 6h10" />
+      <path d="M8 12h10" />
+      <path d="M8 18h7" />
+      <path d="M4 6h.01" />
+      <path d="M4 12h.01" />
+      <path d="M4 18h.01" />
+    </svg>
+  );
+}
+
 function getAge(dateOfBirth: string | null) {
   if (!dateOfBirth) return null;
 
@@ -178,10 +264,6 @@ function formatTime(value: string | null) {
     hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
-}
-
-function getLogIcon(type: string) {
-  return logTypes.find((item) => item.type === type)?.icon || "📝";
 }
 
 function getLogTitle(log: CareLog) {
@@ -575,10 +657,8 @@ export default function DependentProfilePage() {
                 </div>
               )}
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
-                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
+                <p className="max-w-[180px] truncate text-sm font-semibold text-[#0F172A]">{displayName}</p>
               </div>
-              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
 
             {accountMenuOpen && (
@@ -598,7 +678,7 @@ export default function DependentProfilePage() {
 
       <section className="mx-auto max-w-6xl px-5 py-7 md:py-9">
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/profile")}
           className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#0F172A] shadow-sm ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-[#2563EB]"
         >
           ←
@@ -612,8 +692,8 @@ export default function DependentProfilePage() {
                   {dependent.photo_url ? (
                     <img src={dependent.photo_url} alt={dependent.name} className="h-24 w-24 rounded-[30px] object-cover ring-4 ring-white" />
                   ) : (
-                    <div className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-[30px] text-5xl ring-4 ring-white ${config.avatar}`}>
-                      {config.icon}
+                    <div className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-[30px] ring-4 ring-white ${config.avatar}`}>
+                      <DependentTypeIcon type={dependent.type} />
                     </div>
                   )}
 
@@ -646,8 +726,8 @@ export default function DependentProfilePage() {
                           {profilePhotoSrc ? (
                             <img src={profilePhotoSrc} alt={dependent.name} className="h-28 w-28 object-cover" />
                           ) : (
-                            <div className={`flex h-28 w-28 items-center justify-center text-5xl ${config.avatar}`}>
-                              {config.icon}
+                            <div className={`flex h-28 w-28 items-center justify-center ${config.avatar}`}>
+                              <DependentTypeIcon type={dependent.type} />
                             </div>
                           )}
                         </div>
@@ -747,22 +827,30 @@ export default function DependentProfilePage() {
 
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#2563EB] p-5 text-left text-white shadow-lg shadow-blue-200">
-                  <div className="text-3xl">📅</div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+                    <CareLogTypeIcon type="activity" />
+                  </div>
                   <p className="mt-4 text-sm font-bold">Schedule</p>
                   <p className="mt-1 text-xs text-white/80">Book care</p>
                 </button>
                 <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#22C55E] p-5 text-left text-white shadow-lg shadow-emerald-100">
-                  <div className="text-3xl">📝</div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+                    <CareLogTypeIcon type="note" />
+                  </div>
                   <p className="mt-4 text-sm font-bold">Care Log</p>
                   <p className="mt-1 text-xs text-white/80">Add update</p>
                 </button>
                 <button className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-5 text-left">
-                  <div className="text-3xl">📷</div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563EB]">
+                    <CareLogTypeIcon type="photo" />
+                  </div>
                   <p className="mt-4 text-sm font-bold text-[#0F172A]">Photos</p>
                   <p className="mt-1 text-xs text-[#64748B]">Coming soon</p>
                 </button>
                 <button className="rounded-[24px] border border-red-100 bg-red-50 p-5 text-left">
-                  <div className="text-3xl">🚨</div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#EF4444]">
+                    <CareDetailIcon label="Emergency" />
+                  </div>
                   <p className="mt-4 text-sm font-bold text-[#EF4444]">Emergency</p>
                   <p className="mt-1 text-xs text-[#64748B]">Contacts</p>
                 </button>
@@ -785,8 +873,8 @@ export default function DependentProfilePage() {
               <div className="mt-6 grid gap-4 md:grid-cols-3">
                 {config.fields.map((field) => (
                   <div key={field.label} className="rounded-[26px] bg-[#F8FAFC] p-5">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-xl shadow-sm">
-                      {field.icon}
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-sm">
+                      <CareDetailIcon label={field.label} />
                     </div>
                     <p className="mt-4 text-sm font-black text-[#0F172A]">{field.label}</p>
                     <p className="mt-1 text-xs leading-5 text-[#64748B]">{field.value}</p>
@@ -806,7 +894,7 @@ export default function DependentProfilePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold text-[#64748B]">Today</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Care timeline</h2>
+                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today&apos;s Care Story</h2>
                 </div>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">
                   AI summary ready soon
@@ -817,8 +905,8 @@ export default function DependentProfilePage() {
                 {recentLogs.map((log) => (
                   <article key={log.id} className="rounded-[26px] border border-blue-100 bg-[#FFFFFF] p-5">
                     <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-xl">
-                        {getLogIcon(log.type)}
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#2563EB]">
+                        <CareLogTypeIcon type={log.type} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
@@ -835,12 +923,24 @@ export default function DependentProfilePage() {
 
             <section className="rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-lg shadow-blue-100/40">
               <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-2xl shadow-sm">🤖</div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-[#2563EB] shadow-sm">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 3v3" />
+                    <path d="M12 18v3" />
+                    <path d="M4.2 6.2 6.3 8.3" />
+                    <path d="m17.7 15.7 2.1 2.1" />
+                    <path d="M3 12h3" />
+                    <path d="M18 12h3" />
+                    <path d="m4.2 17.8 2.1-2.1" />
+                    <path d="m17.7 8.3 2.1-2.1" />
+                    <path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" />
+                  </svg>
+                </div>
                 <div>
                   <p className="text-sm font-semibold text-[#64748B]">AI Summary</p>
                   <h2 className="mt-1 text-2xl font-black text-[#0F172A]">{dependent.name}&apos;s daily summary</h2>
                   <p className="mt-3 text-sm leading-6 text-[#64748B]">
-                    CareOS will summarize care logs, photos, notes and caregiver updates here.
+                    CareOS will summarize care updates, Moments, notes and caregiver updates here.
                   </p>
                 </div>
               </div>
