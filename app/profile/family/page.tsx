@@ -405,10 +405,8 @@ export default function ManageFamilyPage() {
                 </div>
               )}
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
-                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
+                <p className="max-w-[180px] truncate text-sm font-semibold text-[#0F172A]">{displayName}</p>
               </div>
-              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
 
             {accountMenuOpen && (

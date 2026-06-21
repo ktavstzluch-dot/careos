@@ -184,6 +184,12 @@ function startOfLocalDay(date: Date) {
   return start;
 }
 
+function startOfLocalMonth(date: Date) {
+  const start = startOfLocalDay(date);
+  start.setDate(1);
+  return start;
+}
+
 function getLocalDateKey(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -195,29 +201,31 @@ function isSameLocalDate(first: Date, second: Date) {
   return getLocalDateKey(first) === getLocalDateKey(second);
 }
 
-function getWeekDays(baseDate = new Date()) {
+function getMonthDays(baseDate = new Date()) {
   const today = startOfLocalDay(new Date());
-  const start = startOfLocalDay(baseDate);
-  start.setDate(start.getDate() - 3);
+  const monthStart = startOfLocalMonth(baseDate);
+  const gridStart = startOfLocalDay(monthStart);
+  gridStart.setDate(monthStart.getDate() - monthStart.getDay());
 
-  return Array.from({ length: 7 }).map((_, index) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + index);
+  return Array.from({ length: 42 }).map((_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
 
     return {
       day: new Intl.DateTimeFormat("en", { weekday: "short" }).format(date),
       date,
       dateKey: getLocalDateKey(date),
       dayNumber: date.getDate(),
+      isCurrentMonth: date.getMonth() === monthStart.getMonth(),
       isToday: isSameLocalDate(date, today),
     };
   });
 }
 
-function getVisibleWeekRange(weekDays: Array<{ date: Date }>) {
-  const start = startOfLocalDay(weekDays[0]?.date || new Date());
-  const end = startOfLocalDay(weekDays[weekDays.length - 1]?.date || new Date());
-  end.setDate(end.getDate() + 1);
+function getVisibleMonthRange(monthDate: Date) {
+  const start = startOfLocalMonth(monthDate);
+  const end = startOfLocalMonth(monthDate);
+  end.setMonth(end.getMonth() + 1);
 
   return { start, end };
 }
@@ -310,6 +318,7 @@ export default function SchedulePage() {
   const [sessions, setSessions] = useState<CareSession[]>([]);
   const [activeFilter, setActiveFilter] = useState<ScheduleFilter>("all");
   const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfLocalMonth(new Date()));
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -317,7 +326,8 @@ export default function SchedulePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [form, setForm] = useState<SessionForm>(() => getDefaultForm());
-  const weekDays = useMemo(() => getWeekDays(), []);
+  const monthDays = useMemo(() => getMonthDays(visibleMonth), [visibleMonth]);
+  const monthTitle = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(visibleMonth);
 
   async function loadSchedule() {
     setLoading(true);
@@ -364,7 +374,7 @@ export default function SchedulePage() {
       dependent_id: current.dependent_id || loadedDependents[0]?.id || "",
     }));
 
-    const { start, end } = getVisibleWeekRange(weekDays);
+    const { start, end } = getVisibleMonthRange(visibleMonth);
     const { data: sessionsData } = await supabase
       .from("care_sessions")
       .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, created_at")
@@ -380,7 +390,7 @@ export default function SchedulePage() {
   useEffect(() => {
     loadSchedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [visibleMonth]);
 
   const initials = displayName.slice(0, 1).toUpperCase();
 
@@ -437,6 +447,16 @@ export default function SchedulePage() {
     setMessage(null);
     setMessageType(null);
     setShowCreateForm(true);
+  }
+
+  function changeMonth(direction: -1 | 1) {
+    const nextMonth = startOfLocalMonth(visibleMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + direction);
+    setVisibleMonth(nextMonth);
+    setSelectedDate(startOfLocalDay(nextMonth));
+    setShowCreateForm(false);
+    setMessage(null);
+    setMessageType(null);
   }
 
   async function handleCreateSession(event: FormEvent<HTMLFormElement>) {
@@ -541,10 +561,8 @@ export default function SchedulePage() {
                 </div>
               )}
               <div className="hidden text-left sm:block">
-                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
-                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
+                <p className="max-w-[180px] truncate text-sm font-semibold text-[#0F172A]">{displayName}</p>
               </div>
-              <span className="text-xs text-[#64748B]">⌄</span>
             </button>
 
             {accountMenuOpen && (
@@ -608,16 +626,37 @@ export default function SchedulePage() {
             <div className="mt-8 rounded-[28px] bg-[#F8FAFC] p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#64748B]">This week</p>
-                  <h2 className="mt-1 text-lg font-black text-[#0F172A]">
-                    {new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(new Date())}
-                  </h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#64748B]">This Month</p>
+                  <h2 className="mt-1 text-lg font-black text-[#0F172A]">{monthTitle}</h2>
                 </div>
-                <span className="text-lg text-[#64748B]">›</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => changeMonth(-1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#64748B] shadow-sm ring-1 ring-blue-100 transition hover:text-[#2563EB]"
+                    aria-label="Previous month"
+                  >
+                    &lt;
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => changeMonth(1)}
+                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#64748B] shadow-sm ring-1 ring-blue-100 transition hover:text-[#2563EB]"
+                    aria-label="Next month"
+                  >
+                    &gt;
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-7 gap-2">
-                {weekDays.map((item) => {
+              <div className="mt-5 grid grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-[#94A3B8]">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                  <div key={day}>{day}</div>
+                ))}
+              </div>
+
+              <div className="mt-3 grid grid-cols-7 gap-2">
+                {monthDays.map((item) => {
                   const selected = isSameLocalDate(item.date, selectedDate);
                   const hasSessions = Boolean(sessionDates[item.dateKey]);
 
@@ -625,17 +664,23 @@ export default function SchedulePage() {
                     <button
                       key={item.dateKey}
                       type="button"
-                      onClick={() => setSelectedDate(startOfLocalDay(item.date))}
-                      className={`rounded-2xl px-2 py-3 text-center transition ${
+                      onClick={() => {
+                        setSelectedDate(startOfLocalDay(item.date));
+                        if (!item.isCurrentMonth) {
+                          setVisibleMonth(startOfLocalMonth(item.date));
+                        }
+                      }}
+                      className={`min-h-[68px] rounded-2xl px-2 py-3 text-center transition ${
                         selected
                           ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
                           : item.isToday
                             ? "bg-white text-[#2563EB] ring-1 ring-blue-200"
-                            : "bg-white text-[#64748B] hover:bg-blue-50 hover:text-[#2563EB]"
+                            : item.isCurrentMonth
+                              ? "bg-white text-[#64748B] hover:bg-blue-50 hover:text-[#2563EB]"
+                              : "bg-white/60 text-slate-300 hover:bg-blue-50 hover:text-[#2563EB]"
                       }`}
                     >
-                      <div className="text-xs font-semibold">{item.day}</div>
-                      <div className="mt-2 text-sm font-black">{item.dayNumber}</div>
+                      <div className="text-sm font-black">{item.dayNumber}</div>
                       <span
                         className={`mx-auto mt-2 block h-1.5 w-1.5 rounded-full ${
                           hasSessions ? (selected ? "bg-white" : "bg-[#2563EB]") : "bg-transparent"
