@@ -260,6 +260,10 @@ function getStoragePathFromPublicUrl(photoUrl: string | null) {
   return decodeURIComponent(photoUrl.slice(markerIndex + marker.length));
 }
 
+function sortCareEvents(first: CareEvent, second: CareEvent) {
+  return new Date(getEventTime(first)).getTime() - new Date(getEventTime(second)).getTime();
+}
+
 export default function SessionCareLogPage() {
   const params = useParams<{ sessionId: string }>();
   const router = useRouter();
@@ -397,8 +401,8 @@ export default function SessionCareLogPage() {
     () => events.filter((event) => event.source === "added" && event.event_type !== "note" && event.event_type !== "photo"),
     [events],
   );
-  const photoEvents = useMemo(() => events.filter((event) => event.event_type === "photo" && event.photo_url), [events]);
-  const noteEvents = useMemo(() => events.filter((event) => event.event_type === "note"), [events]);
+  const photoEvents = useMemo(() => events.filter((event) => event.event_type === "photo" && event.photo_url).sort(sortCareEvents), [events]);
+  const noteEvents = useMemo(() => events.filter((event) => event.event_type === "note").sort(sortCareEvents), [events]);
   const completedPlannedCount = plannedActions.filter((action) => plannedEventsByActionId[action.id]?.completed_at).length;
   const completedAddedCount = addedEvents.filter((event) => event.completed_at).length;
   const totalCareActions = plannedActions.length + addedEvents.length;
@@ -418,6 +422,9 @@ export default function SessionCareLogPage() {
       ? elapsedSeconds
       : getDurationSeconds(session?.actual_started_at || null, session?.actual_ended_at || null);
   const summaryProgress = totalCareActions > 0 ? Math.round((completedCareActions / totalCareActions) * 100) : 0;
+  const summaryRingRadius = 45;
+  const summaryRingCircumference = 2 * Math.PI * summaryRingRadius;
+  const summaryRingOffset = summaryRingCircumference * (1 - summaryProgress / 100);
   const summaryChecklist = useMemo(() => {
     const plannedItems = plannedActions.map((action) => {
       const event = plannedEventsByActionId[action.id];
@@ -574,17 +581,23 @@ export default function SessionCareLogPage() {
           .update({ completed_at: now, updated_at: now })
           .eq("id", existingEvent.id)
           .eq("family_id", family.id)
-      : await supabase.from("care_events").insert({
-          family_id: family.id,
-          session_id: session.id,
-          dependent_id: dependent.id,
-          source: "planned",
-          planned_action_id: action.id,
-          event_type: action.type,
-          label: action.label,
-          notes: action.notes || null,
-          completed_at: now,
-        });
+          .select(eventSelect)
+          .maybeSingle()
+      : await supabase
+          .from("care_events")
+          .insert({
+            family_id: family.id,
+            session_id: session.id,
+            dependent_id: dependent.id,
+            source: "planned",
+            planned_action_id: action.id,
+            event_type: action.type,
+            label: action.label,
+            notes: action.notes || null,
+            completed_at: now,
+          })
+          .select(eventSelect)
+          .maybeSingle();
 
     setSavingActionId(null);
 
@@ -596,7 +609,15 @@ export default function SessionCareLogPage() {
 
     setMessage(`${action.label} completed.`);
     setMessageType("success");
-    await loadCareLog();
+    if (result.data) {
+      const savedEvent = result.data as CareEvent;
+      setEvents((current) => {
+        const exists = current.some((event) => event.id === savedEvent.id);
+        return exists
+          ? current.map((event) => (event.id === savedEvent.id ? savedEvent : event)).sort(sortCareEvents)
+          : [...current, savedEvent].sort(sortCareEvents);
+      });
+    }
   }
 
   async function completeAddedEvent(event: CareEvent) {
@@ -607,11 +628,13 @@ export default function SessionCareLogPage() {
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("care_events")
       .update({ completed_at: now, updated_at: now })
       .eq("id", event.id)
-      .eq("family_id", family.id);
+      .eq("family_id", family.id)
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -623,7 +646,10 @@ export default function SessionCareLogPage() {
 
     setMessage(`${event.label} completed.`);
     setMessageType("success");
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => current.map((item) => (item.id === savedEvent.id ? savedEvent : item)).sort(sortCareEvents));
+    }
   }
 
   function changeAddedType(type: PlannedActionType) {
@@ -652,17 +678,21 @@ export default function SessionCareLogPage() {
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase.from("care_events").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      source: "added",
-      planned_action_id: null,
-      event_type: addedForm.event_type,
-      label,
-      notes: notes || null,
-      completed_at: null,
-    });
+    const { data, error } = await supabase
+      .from("care_events")
+      .insert({
+        family_id: family.id,
+        session_id: session.id,
+        dependent_id: dependent.id,
+        source: "added",
+        planned_action_id: null,
+        event_type: addedForm.event_type,
+        label,
+        notes: notes || null,
+        completed_at: null,
+      })
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -676,7 +706,10 @@ export default function SessionCareLogPage() {
     setMessageType("success");
     setAddedForm({ event_type: "meal", label: "Meal", notes: "" });
     setShowAddForm(false);
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => [...current, savedEvent].sort(sortCareEvents));
+    }
   }
 
   async function addCareNote(event: FormEvent<HTMLFormElement>) {
@@ -695,17 +728,21 @@ export default function SessionCareLogPage() {
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase.from("care_events").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      source: "added",
-      planned_action_id: null,
-      event_type: "note",
-      label: "Care Note",
-      notes,
-      completed_at: new Date().toISOString(),
-    });
+    const { data, error } = await supabase
+      .from("care_events")
+      .insert({
+        family_id: family.id,
+        session_id: session.id,
+        dependent_id: dependent.id,
+        source: "added",
+        planned_action_id: null,
+        event_type: "note",
+        label: "Care Note",
+        notes,
+        completed_at: new Date().toISOString(),
+      })
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -718,7 +755,10 @@ export default function SessionCareLogPage() {
     setCareNote("");
     setMessage("Care note added.");
     setMessageType("success");
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => [...current, savedEvent].sort(sortCareEvents));
+    }
   }
 
   async function addCarePhoto(event: FormEvent<HTMLFormElement>) {
@@ -757,18 +797,22 @@ export default function SessionCareLogPage() {
     const photoUrl = publicUrlData.publicUrl;
     const notes = photoCaption.trim();
 
-    const { error } = await supabase.from("care_events").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      source: "added",
-      planned_action_id: null,
-      event_type: "photo",
-      label: "Photo",
-      notes: notes || null,
-      photo_url: photoUrl,
-      completed_at: new Date().toISOString(),
-    });
+    const { data, error } = await supabase
+      .from("care_events")
+      .insert({
+        family_id: family.id,
+        session_id: session.id,
+        dependent_id: dependent.id,
+        source: "added",
+        planned_action_id: null,
+        event_type: "photo",
+        label: "Photo",
+        notes: notes || null,
+        photo_url: photoUrl,
+        completed_at: new Date().toISOString(),
+      })
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -782,7 +826,10 @@ export default function SessionCareLogPage() {
     setPhotoCaption("");
     setMessage("Photo added.");
     setMessageType("success");
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => [...current, savedEvent].sort(sortCareEvents));
+    }
   }
 
   async function deletePhotoEvent(event: CareEvent) {
@@ -818,7 +865,7 @@ export default function SessionCareLogPage() {
     setPhotoViewerIndex(null);
     setMessage("Photo removed.");
     setMessageType("success");
-    await loadCareLog();
+    setEvents((current) => current.filter((item) => item.id !== event.id));
   }
 
   if (loading) {
@@ -854,6 +901,15 @@ export default function SessionCareLogPage() {
   const statusStyle = statusConfig[session.status] || statusConfig.scheduled;
   const initial = dependent.name.slice(0, 1).toUpperCase();
   const profileInitial = displayName.slice(0, 1).toUpperCase();
+  const caregiverName = session.caregiver_name || "Caregiver";
+  const caregiverInitial = caregiverName.slice(0, 1).toUpperCase();
+
+  function openPhotoFromEvent(eventId: string) {
+    const photoIndex = photoEvents.findIndex((event) => event.id === eventId);
+    if (photoIndex >= 0) {
+      setPhotoViewerIndex(photoIndex);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
@@ -1271,13 +1327,16 @@ export default function SessionCareLogPage() {
 
                   {photoEvents.length === 0 ? (
                     <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                      <p className="font-semibold text-[#0F172A]">No photos shared yet</p>
-                      <p className="mt-2 text-sm text-[#64748B]">Photos will appear here as they are added.</p>
+                      <p className="font-semibold text-[#0F172A]">No photos yet</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Photos shared during care will appear here.</p>
                     </div>
                   ) : (
                     <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       {photoEvents.map((event, index) => (
-                        <article key={event.id} className="group relative overflow-hidden rounded-[24px] bg-[#F8FAFC]">
+                        <article
+                          key={event.id}
+                          className="group relative overflow-hidden rounded-[24px] bg-[#F8FAFC] shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/60"
+                        >
                           <button type="button" onClick={() => setPhotoViewerIndex(index)} className="block w-full text-left">
                             <img src={event.photo_url || ""} alt={event.notes || "Care photo"} className="h-48 w-full object-cover" />
                             <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1 text-xs font-black text-white">
@@ -1335,17 +1394,27 @@ export default function SessionCareLogPage() {
                   {noteEvents.length === 0 ? (
                     <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
                       <p className="font-semibold text-[#0F172A]">No care notes yet</p>
-                      <p className="mt-2 text-sm text-[#64748B]">Care notes will appear here.</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Add updates so the family stays connected.</p>
                     </div>
                   ) : (
                     <div className="mt-6 space-y-3">
                       {noteEvents.map((event) => (
-                        <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <p className="text-sm font-black text-[#0F172A]">Care Note</p>
-                            <p className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(getEventTime(event))}</p>
+                        <article
+                          key={event.id}
+                          className="rounded-[24px] bg-[#F8FAFC] p-4 shadow-sm transition duration-300 hover:shadow-md hover:shadow-blue-100/60"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-black text-white">
+                              {caregiverInitial}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <p className="text-sm font-black text-[#0F172A]">{caregiverName}</p>
+                                <p className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(getEventTime(event))}</p>
+                              </div>
+                              {event.notes && <p className="mt-2 text-sm leading-6 text-[#334155]">{event.notes}</p>}
+                            </div>
                           </div>
-                          {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
                         </article>
                       ))}
                     </div>
@@ -1362,13 +1431,13 @@ export default function SessionCareLogPage() {
 
                   {completedEvents.length === 0 ? (
                     <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                      <p className="font-semibold text-[#0F172A]">Nothing completed yet</p>
-                      <p className="mt-2 text-sm text-[#64748B]">Completed care events will appear here.</p>
+                      <p className="font-semibold text-[#0F172A]">No care activity yet</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Start care or complete an activity to begin the Care Story.</p>
                     </div>
                   ) : (
                     <div className="mt-6 space-y-3">
                       {completedEvents.map((event) => (
-                        <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-4">
+                        <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-4 transition duration-300 hover:shadow-md hover:shadow-blue-100/60">
                           <div className="flex items-start gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
                               <PlannedActionIcon type={toPlannedActionIconType(event.event_type)} />
@@ -1386,7 +1455,9 @@ export default function SessionCareLogPage() {
                               </div>
                               {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
                               {event.photo_url && (
-                                <img src={event.photo_url} alt={event.notes || "Care photo"} className="mt-3 h-40 w-full rounded-[20px] object-cover" />
+                                <button type="button" onClick={() => openPhotoFromEvent(event.id)} className="mt-3 block w-full text-left">
+                                  <img src={event.photo_url} alt={event.notes || "Care photo"} className="h-40 w-full rounded-[20px] object-cover" />
+                                </button>
                               )}
                             </div>
                           </div>
@@ -1399,20 +1470,35 @@ export default function SessionCareLogPage() {
             </div>
           </section>
 
-          <aside className="space-y-6 lg:sticky lg:top-28">
+          <aside className="space-y-6 lg:sticky lg:top-24">
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <h2 className="text-2xl font-black text-[#0F172A]">Care Summary</h2>
               <div className="mt-6 flex items-center gap-5">
-                <div
-                  className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full"
-                  style={{
-                    background: `conic-gradient(#2563EB 0 ${Math.max(summaryProgress - 18, 0)}%, #22C55E ${Math.max(
-                      summaryProgress - 18,
-                      0,
-                    )}% ${summaryProgress}%, #EAF2FF ${summaryProgress}% 100%)`,
-                  }}
-                >
-                  <div className="h-20 w-20 rounded-full bg-white" />
+                <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+                  <svg aria-hidden="true" viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
+                    <circle cx="60" cy="60" r={summaryRingRadius} fill="none" stroke="#EAF2FF" strokeWidth="12" />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r={summaryRingRadius}
+                      fill="none"
+                      stroke="url(#care-summary-ring)"
+                      strokeLinecap="round"
+                      strokeWidth="12"
+                      strokeDasharray={summaryRingCircumference}
+                      strokeDashoffset={summaryRingOffset}
+                      className="transition-all duration-700 ease-out"
+                    />
+                    <defs>
+                      <linearGradient id="care-summary-ring" x1="0" x2="1" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#2563EB" />
+                        <stop offset="100%" stopColor="#22C55E" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute flex h-16 w-16 items-center justify-center rounded-full bg-white text-sm font-black text-[#2563EB] shadow-sm">
+                    {summaryProgress}%
+                  </div>
                 </div>
                 <div>
                   <p className="text-4xl font-black text-[#0F172A]">
@@ -1427,7 +1513,12 @@ export default function SessionCareLogPage() {
                   <p className="text-sm leading-6 text-[#64748B]">Care actions will appear here once planned or added.</p>
                 ) : (
                   summaryChecklist.map((item) => (
-                    <article key={item.id} className="flex items-center gap-3">
+                    <article
+                      key={item.id}
+                      className={`flex items-center gap-3 rounded-[22px] p-2 transition duration-300 ${
+                        item.completedAt ? "bg-emerald-50/70" : "bg-[#F8FAFC]"
+                      }`}
+                    >
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
                         <PlannedActionIcon type={item.type} />
                       </span>
@@ -1438,7 +1529,7 @@ export default function SessionCareLogPage() {
                         </p>
                       </div>
                       <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-black ${
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-black transition duration-300 ${
                           item.completedAt ? "border-[#22C55E] bg-[#22C55E] text-white" : "border-[#94A3B8] text-[#94A3B8]"
                         }`}
                       >
@@ -1457,11 +1548,14 @@ export default function SessionCareLogPage() {
             <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
               <h2 className="text-2xl font-black text-[#0F172A]">What Actually Happened</h2>
               {whatHappenedItems.length === 0 ? (
-                <p className="mt-3 text-sm leading-6 text-[#64748B]">Care events will appear here as care happens.</p>
+                <div className="mt-5 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-5">
+                  <p className="font-semibold text-[#0F172A]">No care activity yet</p>
+                  <p className="mt-2 text-sm leading-6 text-[#64748B]">Start care or complete an activity to begin the Care Story.</p>
+                </div>
               ) : (
                 <div className="mt-5 space-y-4">
                   {whatHappenedItems.map((item) => (
-                    <article key={item.id} className="grid grid-cols-[72px_14px_1fr] items-start gap-3">
+                    <article key={item.id} className="grid grid-cols-[72px_14px_1fr] items-start gap-3 rounded-2xl p-1 transition duration-300 hover:bg-[#F8FAFC]">
                       <span className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(item.time)}</span>
                       <span
                         className={`mt-1.5 h-3 w-3 rounded-full ${
@@ -1474,9 +1568,19 @@ export default function SessionCareLogPage() {
                                 : "bg-[#2563EB]"
                         }`}
                       />
-                      <p className={`text-sm font-semibold ${item.type === "meal" ? "text-[#16A34A]" : "text-[#334155]"}`}>
-                        {item.label}
-                      </p>
+                      {item.type === "photo" ? (
+                        <button
+                          type="button"
+                          onClick={() => openPhotoFromEvent(item.id)}
+                          className="text-left text-sm font-semibold text-[#334155] transition hover:text-[#2563EB]"
+                        >
+                          {item.label}
+                        </button>
+                      ) : (
+                        <p className={`text-sm font-semibold ${item.type === "meal" ? "text-[#16A34A]" : "text-[#334155]"}`}>
+                          {item.label}
+                        </p>
+                      )}
                     </article>
                   ))}
                 </div>
