@@ -445,10 +445,10 @@ export default function SessionCareLogPage() {
     <main className="min-h-screen bg-[#F8FAFC] pb-16 text-[#0F172A]">
       <section className="mx-auto max-w-6xl px-5 py-7 md:py-10">
         <button
-          onClick={() => router.push(`/sessions/${session.id}`)}
+          onClick={() => router.push("/schedule")}
           className="mb-5 rounded-2xl bg-white px-5 py-3 text-sm font-black text-[#0F172A] shadow-sm ring-1 ring-blue-100 transition hover:bg-blue-50 hover:text-[#2563EB]"
         >
-          Back to Session Plan
+          Back to Schedule
         </button>
 
         <div className="mb-6">
