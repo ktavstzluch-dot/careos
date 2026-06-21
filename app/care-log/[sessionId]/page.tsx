@@ -71,6 +71,23 @@ type AddedActionForm = {
   notes: string;
 };
 
+type CareWorkspaceTab = "plan" | "added" | "photos" | "notes" | "happened";
+
+type CareHappenedItem = {
+  id: string;
+  time: string | null;
+  label: string;
+  type: CareEventType | "start" | "end";
+};
+
+const careWorkspaceTabs: { id: CareWorkspaceTab; label: string }[] = [
+  { id: "plan", label: "Today's Plan" },
+  { id: "added", label: "Added During Care" },
+  { id: "photos", label: "Photos" },
+  { id: "notes", label: "Care Notes" },
+  { id: "happened", label: "What Happened" },
+];
+
 const navItems = [
   { label: "Home", icon: "\u2302", href: "/dashboard" },
   { label: "Schedule", icon: "\u25A3", href: "/schedule" },
@@ -200,6 +217,14 @@ function formatCompletedTime(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatPhotoTime(event: CareEvent) {
+  return formatCompletedTime(event.completed_at || event.created_at);
+}
+
+function getEventTime(event: CareEvent) {
+  return event.completed_at || event.created_at;
+}
+
 function formatClockDuration(totalSeconds: number) {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(safeSeconds / 3600);
@@ -225,6 +250,20 @@ function toPlannedActionIconType(type: CareEventType): PlannedActionType {
   return type;
 }
 
+function getStoragePathFromPublicUrl(photoUrl: string | null) {
+  if (!photoUrl) return null;
+
+  const marker = "/storage/v1/object/public/care-photos/";
+  const markerIndex = photoUrl.indexOf(marker);
+  if (markerIndex === -1) return null;
+
+  return decodeURIComponent(photoUrl.slice(markerIndex + marker.length));
+}
+
+function sortCareEvents(first: CareEvent, second: CareEvent) {
+  return new Date(getEventTime(first)).getTime() - new Date(getEventTime(second)).getTime();
+}
+
 export default function SessionCareLogPage() {
   const params = useParams<{ sessionId: string }>();
   const router = useRouter();
@@ -247,6 +286,8 @@ export default function SessionCareLogPage() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
+  const [activeTab, setActiveTab] = useState<CareWorkspaceTab>("plan");
+  const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
   const [addedForm, setAddedForm] = useState<AddedActionForm>({
     event_type: "meal",
     label: "Meal",
@@ -356,9 +397,12 @@ export default function SessionCareLogPage() {
       return acc;
     }, {});
   }, [events]);
-  const addedEvents = useMemo(() => events.filter((event) => event.source === "added"), [events]);
-  const photoEvents = useMemo(() => events.filter((event) => event.event_type === "photo" && event.photo_url), [events]);
-  const noteEvents = useMemo(() => events.filter((event) => event.event_type === "note"), [events]);
+  const addedEvents = useMemo(
+    () => events.filter((event) => event.source === "added" && event.event_type !== "note" && event.event_type !== "photo"),
+    [events],
+  );
+  const photoEvents = useMemo(() => events.filter((event) => event.event_type === "photo" && event.photo_url).sort(sortCareEvents), [events]);
+  const noteEvents = useMemo(() => events.filter((event) => event.event_type === "note").sort(sortCareEvents), [events]);
   const completedPlannedCount = plannedActions.filter((action) => plannedEventsByActionId[action.id]?.completed_at).length;
   const completedAddedCount = addedEvents.filter((event) => event.completed_at).length;
   const totalCareActions = plannedActions.length + addedEvents.length;
@@ -377,6 +421,73 @@ export default function SessionCareLogPage() {
     session?.status === "active"
       ? elapsedSeconds
       : getDurationSeconds(session?.actual_started_at || null, session?.actual_ended_at || null);
+  const summaryProgress = totalCareActions > 0 ? Math.round((completedCareActions / totalCareActions) * 100) : 0;
+  const summaryRingRadius = 45;
+  const summaryRingCircumference = 2 * Math.PI * summaryRingRadius;
+  const summaryRingOffset = summaryRingCircumference * (1 - summaryProgress / 100);
+  const summaryChecklist = useMemo(() => {
+    const plannedItems = plannedActions.map((action) => {
+      const event = plannedEventsByActionId[action.id];
+      return {
+        id: `planned-${action.id}`,
+        type: action.type,
+        label: action.label,
+        completedAt: event?.completed_at || null,
+      };
+    });
+
+    const addedItems = addedEvents.map((event) => ({
+      id: `added-${event.id}`,
+      type: toPlannedActionIconType(event.event_type),
+      label: event.label,
+      completedAt: event.completed_at,
+    }));
+
+    return [...plannedItems, ...addedItems];
+  }, [addedEvents, plannedActions, plannedEventsByActionId]);
+  const whatHappenedItems = useMemo<CareHappenedItem[]>(() => {
+    const items: CareHappenedItem[] = [];
+
+    if (session?.actual_started_at) {
+      items.push({
+        id: "care-started",
+        time: session.actual_started_at,
+        label: "Care started",
+        type: "start",
+      });
+    }
+
+    events
+      .filter((event) => event.completed_at)
+      .forEach((event) => {
+        items.push({
+          id: event.id,
+          time: event.completed_at,
+          label:
+            event.event_type === "note"
+              ? "Note added"
+              : event.event_type === "photo"
+                ? "Photo added"
+                : `${event.label} completed`,
+          type: event.event_type,
+        });
+      });
+
+    if (session?.actual_ended_at) {
+      items.push({
+        id: "care-ended",
+        time: session.actual_ended_at,
+        label: "Care ended",
+        type: "end",
+      });
+    }
+
+    return items.sort((first, second) => {
+      const firstTime = first.time ? new Date(first.time).getTime() : 0;
+      const secondTime = second.time ? new Date(second.time).getTime() : 0;
+      return firstTime - secondTime;
+    });
+  }, [events, session?.actual_ended_at, session?.actual_started_at]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -470,17 +581,23 @@ export default function SessionCareLogPage() {
           .update({ completed_at: now, updated_at: now })
           .eq("id", existingEvent.id)
           .eq("family_id", family.id)
-      : await supabase.from("care_events").insert({
-          family_id: family.id,
-          session_id: session.id,
-          dependent_id: dependent.id,
-          source: "planned",
-          planned_action_id: action.id,
-          event_type: action.type,
-          label: action.label,
-          notes: action.notes || null,
-          completed_at: now,
-        });
+          .select(eventSelect)
+          .maybeSingle()
+      : await supabase
+          .from("care_events")
+          .insert({
+            family_id: family.id,
+            session_id: session.id,
+            dependent_id: dependent.id,
+            source: "planned",
+            planned_action_id: action.id,
+            event_type: action.type,
+            label: action.label,
+            notes: action.notes || null,
+            completed_at: now,
+          })
+          .select(eventSelect)
+          .maybeSingle();
 
     setSavingActionId(null);
 
@@ -492,7 +609,15 @@ export default function SessionCareLogPage() {
 
     setMessage(`${action.label} completed.`);
     setMessageType("success");
-    await loadCareLog();
+    if (result.data) {
+      const savedEvent = result.data as CareEvent;
+      setEvents((current) => {
+        const exists = current.some((event) => event.id === savedEvent.id);
+        return exists
+          ? current.map((event) => (event.id === savedEvent.id ? savedEvent : event)).sort(sortCareEvents)
+          : [...current, savedEvent].sort(sortCareEvents);
+      });
+    }
   }
 
   async function completeAddedEvent(event: CareEvent) {
@@ -503,11 +628,13 @@ export default function SessionCareLogPage() {
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("care_events")
       .update({ completed_at: now, updated_at: now })
       .eq("id", event.id)
-      .eq("family_id", family.id);
+      .eq("family_id", family.id)
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -519,7 +646,10 @@ export default function SessionCareLogPage() {
 
     setMessage(`${event.label} completed.`);
     setMessageType("success");
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => current.map((item) => (item.id === savedEvent.id ? savedEvent : item)).sort(sortCareEvents));
+    }
   }
 
   function changeAddedType(type: PlannedActionType) {
@@ -548,17 +678,21 @@ export default function SessionCareLogPage() {
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase.from("care_events").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      source: "added",
-      planned_action_id: null,
-      event_type: addedForm.event_type,
-      label,
-      notes: notes || null,
-      completed_at: null,
-    });
+    const { data, error } = await supabase
+      .from("care_events")
+      .insert({
+        family_id: family.id,
+        session_id: session.id,
+        dependent_id: dependent.id,
+        source: "added",
+        planned_action_id: null,
+        event_type: addedForm.event_type,
+        label,
+        notes: notes || null,
+        completed_at: null,
+      })
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -572,7 +706,10 @@ export default function SessionCareLogPage() {
     setMessageType("success");
     setAddedForm({ event_type: "meal", label: "Meal", notes: "" });
     setShowAddForm(false);
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => [...current, savedEvent].sort(sortCareEvents));
+    }
   }
 
   async function addCareNote(event: FormEvent<HTMLFormElement>) {
@@ -591,17 +728,21 @@ export default function SessionCareLogPage() {
     setMessage(null);
     setMessageType(null);
 
-    const { error } = await supabase.from("care_events").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      source: "added",
-      planned_action_id: null,
-      event_type: "note",
-      label: "Care Note",
-      notes,
-      completed_at: new Date().toISOString(),
-    });
+    const { data, error } = await supabase
+      .from("care_events")
+      .insert({
+        family_id: family.id,
+        session_id: session.id,
+        dependent_id: dependent.id,
+        source: "added",
+        planned_action_id: null,
+        event_type: "note",
+        label: "Care Note",
+        notes,
+        completed_at: new Date().toISOString(),
+      })
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -614,7 +755,10 @@ export default function SessionCareLogPage() {
     setCareNote("");
     setMessage("Care note added.");
     setMessageType("success");
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => [...current, savedEvent].sort(sortCareEvents));
+    }
   }
 
   async function addCarePhoto(event: FormEvent<HTMLFormElement>) {
@@ -653,18 +797,22 @@ export default function SessionCareLogPage() {
     const photoUrl = publicUrlData.publicUrl;
     const notes = photoCaption.trim();
 
-    const { error } = await supabase.from("care_events").insert({
-      family_id: family.id,
-      session_id: session.id,
-      dependent_id: dependent.id,
-      source: "added",
-      planned_action_id: null,
-      event_type: "photo",
-      label: "Photo",
-      notes: notes || null,
-      photo_url: photoUrl,
-      completed_at: new Date().toISOString(),
-    });
+    const { data, error } = await supabase
+      .from("care_events")
+      .insert({
+        family_id: family.id,
+        session_id: session.id,
+        dependent_id: dependent.id,
+        source: "added",
+        planned_action_id: null,
+        event_type: "photo",
+        label: "Photo",
+        notes: notes || null,
+        photo_url: photoUrl,
+        completed_at: new Date().toISOString(),
+      })
+      .select(eventSelect)
+      .maybeSingle();
 
     setSavingActionId(null);
 
@@ -678,7 +826,46 @@ export default function SessionCareLogPage() {
     setPhotoCaption("");
     setMessage("Photo added.");
     setMessageType("success");
-    await loadCareLog();
+    if (data) {
+      const savedEvent = data as CareEvent;
+      setEvents((current) => [...current, savedEvent].sort(sortCareEvents));
+    }
+  }
+
+  async function deletePhotoEvent(event: CareEvent) {
+    if (!family || event.event_type !== "photo") return;
+
+    const confirmed = window.confirm("Remove this photo from Care Log?");
+    if (!confirmed) return;
+
+    setSavingActionId(`delete-photo-${event.id}`);
+    setMessage(null);
+    setMessageType(null);
+
+    const storagePath = getStoragePathFromPublicUrl(event.photo_url);
+    if (storagePath) {
+      await supabase.storage.from("care-photos").remove([storagePath]);
+    }
+
+    const { error } = await supabase
+      .from("care_events")
+      .delete()
+      .eq("id", event.id)
+      .eq("family_id", family.id)
+      .eq("event_type", "photo");
+
+    setSavingActionId(null);
+
+    if (error) {
+      setMessage(error.message || "Photo could not be removed.");
+      setMessageType("error");
+      return;
+    }
+
+    setPhotoViewerIndex(null);
+    setMessage("Photo removed.");
+    setMessageType("success");
+    setEvents((current) => current.filter((item) => item.id !== event.id));
   }
 
   if (loading) {
@@ -714,6 +901,15 @@ export default function SessionCareLogPage() {
   const statusStyle = statusConfig[session.status] || statusConfig.scheduled;
   const initial = dependent.name.slice(0, 1).toUpperCase();
   const profileInitial = displayName.slice(0, 1).toUpperCase();
+  const caregiverName = session.caregiver_name || "Caregiver";
+  const caregiverInitial = caregiverName.slice(0, 1).toUpperCase();
+
+  function openPhotoFromEvent(eventId: string) {
+    const photoIndex = photoEvents.findIndex((event) => event.id === eventId);
+    if (photoIndex >= 0) {
+      setPhotoViewerIndex(photoIndex);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
@@ -912,291 +1108,549 @@ export default function SessionCareLogPage() {
           </div>
         )}
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.72fr]">
-          <div className="space-y-6">
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-[#64748B]">Planned Care</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today&apos;s Plan</h2>
-                </div>
+        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <section className="min-w-0 rounded-[36px] border border-blue-100 bg-white shadow-xl shadow-blue-100/45">
+            <div className="border-b border-blue-100 px-4 pt-4 sm:px-6">
+              <div className="flex gap-1 overflow-x-auto">
+                {careWorkspaceTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-black transition ${
+                      activeTab === tab.id
+                        ? "border-[#2563EB] text-[#2563EB]"
+                        : "border-transparent text-[#64748B] hover:text-[#2563EB]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {plannedActions.length === 0 ? (
-                <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                  <p className="font-semibold text-[#0F172A]">No planned care actions</p>
-                  <p className="mt-2 text-sm text-[#64748B]">You can still add care actions during care.</p>
-                </div>
-              ) : (
-                <div className="mt-6 space-y-3">
-                  {plannedActions.map((action) => {
-                    const event = plannedEventsByActionId[action.id];
-                    const completed = Boolean(event?.completed_at);
-                    const saving = savingActionId === `planned-${action.id}`;
+            <div className="p-5 sm:p-6">
+              {activeTab === "plan" && (
+                <section>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-2xl font-black text-[#0F172A]">Today&apos;s Plan</h2>
+                      <p className="mt-1 text-sm leading-6 text-[#64748B]">Complete planned care as it happens.</p>
+                    </div>
+                  </div>
 
-                    return (
-                      <article key={action.id} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <PlannedActionBadge type={action.type} label={action.label} notes={action.notes} selected={completed} />
-                          <div className="flex flex-wrap items-center gap-3">
-                            {completed ? (
-                              <span className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-black text-[#16A34A]">
-                                Completed {formatCompletedTime(event?.completed_at || null)}
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => completePlannedAction(action)}
-                                disabled={Boolean(savingActionId)}
-                                className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                              >
-                                {saving ? "Completing..." : "Complete"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                  {plannedActions.length === 0 ? (
+                    <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                      <p className="font-semibold text-[#0F172A]">No planned care actions</p>
+                      <p className="mt-2 text-sm text-[#64748B]">You can still add care actions during care.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {plannedActions.map((action) => {
+                        const event = plannedEventsByActionId[action.id];
+                        const completed = Boolean(event?.completed_at);
+                        const saving = savingActionId === `planned-${action.id}`;
+
+                        return (
+                          <article key={action.id} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-4">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <PlannedActionBadge type={action.type} label={action.label} notes={action.notes} selected={completed} />
+                              <div className="flex flex-wrap items-center gap-3">
+                                {completed ? (
+                                  <span className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-black text-[#16A34A]">
+                                    Completed {formatCompletedTime(event?.completed_at || null)}
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => completePlannedAction(action)}
+                                    disabled={Boolean(savingActionId)}
+                                    className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                                  >
+                                    {saving ? "Completing..." : "Complete"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
 
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-              <div>
-                <p className="text-sm font-semibold text-[#64748B]">Photos</p>
-                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Photos</h2>
-              </div>
+              {activeTab === "added" && (
+                <section>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-2xl font-black text-[#0F172A]">Added During Care</h2>
+                      <p className="mt-1 text-sm leading-6 text-[#64748B]">Add extra care actions when the day changes.</p>
+                    </div>
+                    <button
+                      onClick={() => setShowAddForm((open) => !open)}
+                      className="rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
+                    >
+                      {showAddForm ? "Cancel" : "Add Care Action"}
+                    </button>
+                  </div>
 
-              <form onSubmit={addCarePhoto} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Add Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
-                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Caption optional</span>
-                    <input
-                      value={photoCaption}
-                      onChange={(event) => setPhotoCaption(event.target.value)}
-                      placeholder="What is happening?"
-                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                    />
-                  </label>
-                </div>
-                <button
-                  type="submit"
-                  disabled={Boolean(savingActionId)}
-                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                >
-                  {savingActionId === "add-care-photo" ? "Adding..." : "Add Photo"}
-                </button>
-              </form>
-
-              {photoEvents.length > 0 && (
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {photoEvents.map((event) => (
-                    <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-3">
-                      <img src={event.photo_url || ""} alt={event.notes || "Care photo"} className="h-40 w-full rounded-[20px] object-cover" />
-                      {event.notes && <p className="mt-3 text-sm font-semibold text-[#0F172A]">{event.notes}</p>}
-                      <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatCompletedTime(event.completed_at)}</p>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-              <div>
-                <p className="text-sm font-semibold text-[#64748B]">Care Notes</p>
-                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Care Notes</h2>
-              </div>
-
-              <form onSubmit={addCareNote} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Add a care note...</span>
-                  <textarea
-                    value={careNote}
-                    onChange={(event) => setCareNote(event.target.value)}
-                    className="mt-2 min-h-28 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                    placeholder="Add a care note..."
-                  />
-                </label>
-                <button
-                  type="submit"
-                  disabled={Boolean(savingActionId)}
-                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                >
-                  {savingActionId === "add-care-note" ? "Adding..." : "Add Note"}
-                </button>
-              </form>
-
-              {noteEvents.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  {noteEvents.map((event) => (
-                    <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-4">
-                      <p className="text-sm font-black text-[#0F172A]">{event.label}</p>
-                      {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
-                      <p className="mt-2 text-xs font-semibold text-[#64748B]">{formatCompletedTime(event.completed_at)}</p>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-[#64748B]">Care Event</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Added During Care</h2>
-                </div>
-                <button
-                  onClick={() => setShowAddForm((open) => !open)}
-                  className="rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
-                >
-                  {showAddForm ? "Cancel" : "Add Care Action"}
-                </button>
-              </div>
-
-              {showAddForm && (
-                <form onSubmit={addCareAction} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Action type</span>
-                      <select
-                        value={addedForm.event_type}
-                        onChange={(event) => changeAddedType(event.target.value as PlannedActionType)}
-                        className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                  {showAddForm && (
+                    <form onSubmit={addCareAction} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Action type</span>
+                          <select
+                            value={addedForm.event_type}
+                            onChange={(event) => changeAddedType(event.target.value as PlannedActionType)}
+                            className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                          >
+                            {[...plannedActionOptions, { type: "custom" as const, label: "Custom" }].map((option) => (
+                              <option key={option.type} value={option.type}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Label</span>
+                          <input
+                            value={addedForm.label}
+                            onChange={(event) => setAddedForm((current) => ({ ...current, label: event.target.value }))}
+                            className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                            required
+                          />
+                        </label>
+                        <label className="block sm:col-span-2">
+                          <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Notes optional</span>
+                          <textarea
+                            value={addedForm.notes}
+                            onChange={(event) => setAddedForm((current) => ({ ...current, notes: event.target.value }))}
+                            className="mt-2 min-h-24 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                            placeholder="What changed during care?"
+                          />
+                        </label>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={Boolean(savingActionId)}
+                        className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                       >
-                        {[...plannedActionOptions, { type: "custom" as const, label: "Custom" }].map((option) => (
-                          <option key={option.type} value={option.type}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Label</span>
+                        {savingActionId === "add-care-action" ? "Adding..." : "Add Care Action"}
+                      </button>
+                    </form>
+                  )}
+
+                  {addedEvents.length === 0 ? (
+                    <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                      <p className="font-semibold text-[#0F172A]">No extra care actions added yet</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Add one if care changes during the session.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {addedEvents.map((event) => {
+                        const completed = Boolean(event.completed_at);
+                        const saving = savingActionId === `added-${event.id}`;
+
+                        return (
+                          <article key={event.id} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-4">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="inline-flex items-center gap-3">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
+                                  <PlannedActionIcon type={toPlannedActionIconType(event.event_type)} />
+                                </span>
+                                <span>
+                                  <span className="block text-sm font-black text-[#0F172A]">{event.label}</span>
+                                  {event.notes && <span className="mt-1 block text-sm leading-6 text-[#64748B]">{event.notes}</span>}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3">
+                                {completed ? (
+                                  <span className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-black text-[#16A34A]">
+                                    Completed {formatCompletedTime(event.completed_at)}
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => completeAddedEvent(event)}
+                                    disabled={Boolean(savingActionId)}
+                                    className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                                  >
+                                    {saving ? "Completing..." : "Complete"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {activeTab === "photos" && (
+                <section>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-2xl font-black text-[#0F172A]">Photos</h2>
+                      <p className="mt-1 text-sm leading-6 text-[#64748B]">Share visual moments from today&apos;s care.</p>
+                    </div>
+                    <label className="cursor-pointer rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white">
+                      Add Photo
                       <input
-                        value={addedForm.label}
-                        onChange={(event) => setAddedForm((current) => ({ ...current, label: event.target.value }))}
-                        className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                        required
-                      />
-                    </label>
-                    <label className="block sm:col-span-2">
-                      <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Notes optional</span>
-                      <textarea
-                        value={addedForm.notes}
-                        onChange={(event) => setAddedForm((current) => ({ ...current, notes: event.target.value }))}
-                        className="mt-2 min-h-24 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                        placeholder="What changed during care?"
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
+                        className="hidden"
                       />
                     </label>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={Boolean(savingActionId)}
-                    className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                  >
-                    {savingActionId === "add-care-action" ? "Adding..." : "Add Care Action"}
-                  </button>
-                </form>
+
+                  <form onSubmit={addCarePhoto} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
+                    <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                      <label className="block">
+                        <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Caption optional</span>
+                        <input
+                          value={photoCaption}
+                          onChange={(event) => setPhotoCaption(event.target.value)}
+                          placeholder={photoFile ? photoFile.name : "Choose a photo, then add a caption"}
+                          className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                        />
+                      </label>
+                      <button
+                        type="submit"
+                        disabled={Boolean(savingActionId) || !photoFile}
+                        className="rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                      >
+                        {savingActionId === "add-care-photo" ? "Adding..." : "Share Photo"}
+                      </button>
+                    </div>
+                  </form>
+
+                  {photoEvents.length === 0 ? (
+                    <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                      <p className="font-semibold text-[#0F172A]">No photos yet</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Photos shared during care will appear here.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {photoEvents.map((event, index) => (
+                        <article
+                          key={event.id}
+                          className="group relative overflow-hidden rounded-[24px] bg-[#F8FAFC] shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-100/60"
+                        >
+                          <button type="button" onClick={() => setPhotoViewerIndex(index)} className="block w-full text-left">
+                            <img src={event.photo_url || ""} alt={event.notes || "Care photo"} className="h-48 w-full object-cover" />
+                            <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1 text-xs font-black text-white">
+                              {formatPhotoTime(event)}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPhotoViewerIndex(index)}
+                            className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-sm font-black text-[#0F172A] shadow-sm"
+                            aria-label="Expand photo"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deletePhotoEvent(event)}
+                            disabled={savingActionId === `delete-photo-${event.id}`}
+                            className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-sm font-black text-[#EF4444] shadow-sm disabled:opacity-60"
+                            aria-label="Remove photo"
+                          >
+                            x
+                          </button>
+                          {event.notes && <p className="p-3 text-sm font-semibold leading-6 text-[#0F172A]">{event.notes}</p>}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
               )}
 
-              {addedEvents.length === 0 ? (
-                <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
-                  <p className="font-semibold text-[#0F172A]">No extra care actions added yet</p>
-                  <p className="mt-2 text-sm text-[#64748B]">Add one if care changes during the session.</p>
-                </div>
-              ) : (
-                <div className="mt-6 space-y-3">
-                  {addedEvents.map((event) => {
-                    const completed = Boolean(event.completed_at);
-                    const saving = savingActionId === `added-${event.id}`;
+              {activeTab === "notes" && (
+                <section>
+                  <div>
+                    <h2 className="text-2xl font-black text-[#0F172A]">Care Notes</h2>
+                    <p className="mt-1 text-sm leading-6 text-[#64748B]">Add helpful context for the family.</p>
+                  </div>
 
-                    return (
-                      <article key={event.id} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="inline-flex items-center gap-3">
+                  <form onSubmit={addCareNote} className="mt-6 flex flex-col gap-3 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-4 sm:flex-row">
+                    <textarea
+                      value={careNote}
+                      onChange={(event) => setCareNote(event.target.value)}
+                      className="min-h-12 flex-1 resize-none rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                      placeholder="Add a care note..."
+                    />
+                    <button
+                      type="submit"
+                      disabled={Boolean(savingActionId)}
+                      className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                    >
+                      {savingActionId === "add-care-note" ? "Adding..." : "Send"}
+                    </button>
+                  </form>
+
+                  {noteEvents.length === 0 ? (
+                    <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                      <p className="font-semibold text-[#0F172A]">No care notes yet</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Add updates so the family stays connected.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {noteEvents.map((event) => (
+                        <article
+                          key={event.id}
+                          className="rounded-[24px] bg-[#F8FAFC] p-4 shadow-sm transition duration-300 hover:shadow-md hover:shadow-blue-100/60"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-black text-white">
+                              {caregiverInitial}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <p className="text-sm font-black text-[#0F172A]">{caregiverName}</p>
+                                <p className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(getEventTime(event))}</p>
+                              </div>
+                              {event.notes && <p className="mt-2 text-sm leading-6 text-[#334155]">{event.notes}</p>}
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {activeTab === "happened" && (
+                <section>
+                  <div>
+                    <h2 className="text-2xl font-black text-[#0F172A]">What Happened</h2>
+                    <p className="mt-1 text-sm leading-6 text-[#64748B]">A clear view of care as it unfolds.</p>
+                  </div>
+
+                  {completedEvents.length === 0 ? (
+                    <div className="mt-6 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                      <p className="font-semibold text-[#0F172A]">No care activity yet</p>
+                      <p className="mt-2 text-sm text-[#64748B]">Start care or complete an activity to begin the Care Story.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 space-y-3">
+                      {completedEvents.map((event) => (
+                        <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-4 transition duration-300 hover:shadow-md hover:shadow-blue-100/60">
+                          <div className="flex items-start gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
                               <PlannedActionIcon type={toPlannedActionIconType(event.event_type)} />
                             </span>
-                            <span>
-                              <span className="block text-sm font-black text-[#0F172A]">{event.label}</span>
-                              {event.notes && <span className="mt-1 block text-sm leading-6 text-[#64748B]">{event.notes}</span>}
-                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-black text-[#0F172A]">
+                                  {event.event_type === "note"
+                                    ? "Note added"
+                                    : event.event_type === "photo"
+                                      ? "Photo added"
+                                      : `${event.label} completed`}
+                                </p>
+                                <span className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(getEventTime(event))}</span>
+                              </div>
+                              {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
+                              {event.photo_url && (
+                                <button type="button" onClick={() => openPhotoFromEvent(event.id)} className="mt-3 block w-full text-left">
+                                  <img src={event.photo_url} alt={event.notes || "Care photo"} className="h-40 w-full rounded-[20px] object-cover" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3">
-                            {completed ? (
-                              <span className="rounded-full bg-emerald-50 px-4 py-2 text-xs font-black text-[#16A34A]">
-                                Completed {formatCompletedTime(event.completed_at)}
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => completeAddedEvent(event)}
-                                disabled={Boolean(savingActionId)}
-                                className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                              >
-                                {saving ? "Completing..." : "Complete"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
-          </div>
-
-          <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-            <p className="text-sm font-semibold text-[#64748B]">Care Story</p>
-            <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Care Summary</h2>
-            <div className="mt-6 rounded-[30px] bg-gradient-to-br from-emerald-50 to-blue-50 p-6">
-              <p className="text-4xl font-black text-[#0F172A]">
-                {completedCareActions} of {totalCareActions}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-[#64748B]">care actions completed</p>
             </div>
-            <div className="mt-5 rounded-[28px] bg-[#F8FAFC] p-5">
-              <p className="text-sm font-black text-[#0F172A]">What Actually Happened</p>
-              {completedEvents.length === 0 ? (
-                <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                  Completed care actions will appear here as care happens.
-                </p>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {completedEvents.map((event) => (
-                    <article key={event.id} className="rounded-[22px] bg-white p-4 shadow-sm">
-                      <div className="flex items-start gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
-                          <PlannedActionIcon type={toPlannedActionIconType(event.event_type)} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-black text-[#0F172A]">{event.label}</p>
-                            <span className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(event.completed_at)}</span>
-                          </div>
-                          {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
-                          {event.photo_url && (
-                            <img src={event.photo_url} alt={event.notes || "Care photo"} className="mt-3 h-36 w-full rounded-[20px] object-cover" />
-                          )}
-                        </div>
+          </section>
+
+          <aside className="space-y-6 lg:sticky lg:top-24">
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+              <h2 className="text-2xl font-black text-[#0F172A]">Care Summary</h2>
+              <div className="mt-6 flex items-center gap-5">
+                <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+                  <svg aria-hidden="true" viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
+                    <circle cx="60" cy="60" r={summaryRingRadius} fill="none" stroke="#EAF2FF" strokeWidth="12" />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r={summaryRingRadius}
+                      fill="none"
+                      stroke="url(#care-summary-ring)"
+                      strokeLinecap="round"
+                      strokeWidth="12"
+                      strokeDasharray={summaryRingCircumference}
+                      strokeDashoffset={summaryRingOffset}
+                      className="transition-all duration-700 ease-out"
+                    />
+                    <defs>
+                      <linearGradient id="care-summary-ring" x1="0" x2="1" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#2563EB" />
+                        <stop offset="100%" stopColor="#22C55E" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div className="absolute flex h-16 w-16 items-center justify-center rounded-full bg-white text-sm font-black text-[#2563EB] shadow-sm">
+                    {summaryProgress}%
+                  </div>
+                </div>
+                <div>
+                  <p className="text-4xl font-black text-[#0F172A]">
+                    {completedCareActions} of {totalCareActions}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">care actions completed</p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3 border-t border-blue-100 pt-5">
+                {summaryChecklist.length === 0 ? (
+                  <p className="text-sm leading-6 text-[#64748B]">Care actions will appear here once planned or added.</p>
+                ) : (
+                  summaryChecklist.map((item) => (
+                    <article
+                      key={item.id}
+                      className={`flex items-center gap-3 rounded-[22px] p-2 transition duration-300 ${
+                        item.completedAt ? "bg-emerald-50/70" : "bg-[#F8FAFC]"
+                      }`}
+                    >
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
+                        <PlannedActionIcon type={item.type} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-[#0F172A]">{item.label}</p>
+                        <p className="text-xs font-semibold text-[#64748B]">
+                          {item.completedAt ? `Completed ${formatCompletedTime(item.completedAt)}` : "Pending"}
+                        </p>
                       </div>
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-black transition duration-300 ${
+                          item.completedAt ? "border-[#22C55E] bg-[#22C55E] text-white" : "border-[#94A3B8] text-[#94A3B8]"
+                        }`}
+                      >
+                        {item.completedAt && (
+                          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
+                            <path d="m5 12 4 4L19 6" />
+                          </svg>
+                        )}
+                      </span>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+              <h2 className="text-2xl font-black text-[#0F172A]">What Actually Happened</h2>
+              {whatHappenedItems.length === 0 ? (
+                <div className="mt-5 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-5">
+                  <p className="font-semibold text-[#0F172A]">No care activity yet</p>
+                  <p className="mt-2 text-sm leading-6 text-[#64748B]">Start care or complete an activity to begin the Care Story.</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  {whatHappenedItems.map((item) => (
+                    <article key={item.id} className="grid grid-cols-[72px_14px_1fr] items-start gap-3 rounded-2xl p-1 transition duration-300 hover:bg-[#F8FAFC]">
+                      <span className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(item.time)}</span>
+                      <span
+                        className={`mt-1.5 h-3 w-3 rounded-full ${
+                          item.type === "start" || item.type === "meal"
+                            ? "bg-[#22C55E]"
+                            : item.type === "end"
+                              ? "bg-[#64748B]"
+                              : item.type === "photo"
+                                ? "bg-[#F59E0B]"
+                                : "bg-[#2563EB]"
+                        }`}
+                      />
+                      {item.type === "photo" ? (
+                        <button
+                          type="button"
+                          onClick={() => openPhotoFromEvent(item.id)}
+                          className="text-left text-sm font-semibold text-[#334155] transition hover:text-[#2563EB]"
+                        >
+                          {item.label}
+                        </button>
+                      ) : (
+                        <p className={`text-sm font-semibold ${item.type === "meal" ? "text-[#16A34A]" : "text-[#334155]"}`}>
+                          {item.label}
+                        </p>
+                      )}
                     </article>
                   ))}
                 </div>
               )}
-            </div>
-          </section>
+            </section>
+          </aside>
         </section>
       </section>
+
+      {photoViewerIndex !== null && photoEvents[photoViewerIndex] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/85 p-5">
+          <button
+            type="button"
+            onClick={() => setPhotoViewerIndex(null)}
+            className="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white text-lg font-black text-[#0F172A] shadow-lg"
+            aria-label="Close photo viewer"
+          >
+            x
+          </button>
+
+          {photoEvents.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setPhotoViewerIndex((current) => (current === null ? 0 : (current - 1 + photoEvents.length) % photoEvents.length))}
+              className="absolute left-5 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl font-black text-[#0F172A] shadow-lg"
+              aria-label="Previous photo"
+            >
+              &lt;
+            </button>
+          )}
+
+          <div className="max-h-[88vh] w-full max-w-5xl">
+            <img
+              src={photoEvents[photoViewerIndex].photo_url || ""}
+              alt={photoEvents[photoViewerIndex].notes || "Care photo"}
+              className="max-h-[78vh] w-full rounded-[28px] object-contain"
+            />
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-white px-5 py-4">
+              <div>
+                <p className="text-sm font-black text-[#0F172A]">
+                  {photoViewerIndex + 1} / {photoEvents.length}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatPhotoTime(photoEvents[photoViewerIndex])}</p>
+              </div>
+              {photoEvents[photoViewerIndex].notes && (
+                <p className="min-w-0 flex-1 text-sm font-semibold leading-6 text-[#334155]">{photoEvents[photoViewerIndex].notes}</p>
+              )}
+              <button
+                type="button"
+                onClick={() => deletePhotoEvent(photoEvents[photoViewerIndex])}
+                disabled={savingActionId === `delete-photo-${photoEvents[photoViewerIndex].id}`}
+                className="rounded-[18px] bg-red-50 px-4 py-2 text-sm font-black text-[#EF4444] transition hover:bg-[#EF4444] hover:text-white disabled:opacity-60"
+              >
+                Remove Photo
+              </button>
+            </div>
+          </div>
+
+          {photoEvents.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setPhotoViewerIndex((current) => (current === null ? 0 : (current + 1) % photoEvents.length))}
+              className="absolute right-5 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white text-2xl font-black text-[#0F172A] shadow-lg"
+              aria-label="Next photo"
+            >
+              &gt;
+            </button>
+          )}
+        </div>
+      )}
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-blue-100 bg-white/95 px-4 py-3 backdrop-blur-xl md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
