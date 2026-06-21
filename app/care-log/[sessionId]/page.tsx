@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getProfileFromUser } from "@/lib/profile";
 import { PlannedActionBadge, PlannedActionIcon, plannedActionOptions, type PlannedActionType } from "@/lib/plannedActions";
 
 type DependentType = "child" | "pet" | "elder";
@@ -40,6 +41,8 @@ type CareSession = {
   status: SessionStatus;
   starts_at: string | null;
   ends_at: string | null;
+  actual_started_at: string | null;
+  actual_ended_at: string | null;
   planned_actions: PlannedAction[];
   notes: string | null;
   instructions: string | null;
@@ -68,8 +71,16 @@ type AddedActionForm = {
   notes: string;
 };
 
+const navItems = [
+  { label: "Home", icon: "\u2302", href: "/dashboard" },
+  { label: "Schedule", icon: "\u25A3", href: "/schedule" },
+  { label: "Care Log", icon: "\u25A1", href: "/care-log" },
+  { label: "Messages", icon: "\u25CD", href: "/messages" },
+  { label: "Profile", icon: "\u2659", href: "/profile" },
+];
+
 const sessionSelect =
-  "id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, notes, instructions, created_at";
+  "id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, actual_started_at, actual_ended_at, planned_actions, notes, instructions, created_at";
 
 const eventSelect =
   "id, family_id, session_id, dependent_id, source, planned_action_id, event_type, label, notes, photo_url, completed_at, created_at, updated_at";
@@ -114,6 +125,26 @@ const typeConfig: Record<DependentType, { label: string; avatarClass: string; ba
     badgeClass: "bg-blue-50 text-[#2563EB]",
   },
 };
+
+function CareOSLogo() {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-[18px] border-[4px] border-[#2563EB] bg-white shadow-lg shadow-blue-100">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#22C55E] text-white">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+            <path d="M12 20.2 5.9 14.7C2.5 11.6 2.3 7.1 5.4 4.8 7.2 3.5 9.8 3.8 12 6c2.2-2.2 4.8-2.5 6.6-1.2 3.1 2.3 2.9 6.8-.5 9.9L12 20.2Z" />
+          </svg>
+        </div>
+      </div>
+      <div>
+        <div className="text-2xl font-black tracking-tight text-[#0F172A]">CareOS</div>
+        <div className="hidden text-xs font-medium text-[#64748B] sm:block">
+          Trusted care for kids, pets and home
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function DependentTypeIcon({ type }: { type: DependentType }) {
   if (type === "pet") {
@@ -169,6 +200,20 @@ function formatCompletedTime(value: string | null) {
   }).format(new Date(value));
 }
 
+function formatClockDuration(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  return [hours, minutes, seconds].map((value) => `${value}`.padStart(2, "0")).join(":");
+}
+
+function getDurationSeconds(startValue: string | null, endValue: string | null) {
+  if (!startValue || !endValue) return 0;
+  return Math.max(0, Math.floor((new Date(endValue).getTime() - new Date(startValue).getTime()) / 1000));
+}
+
 function getDefaultAddedLabel(type: PlannedActionType) {
   if (type === "custom") return "Custom care action";
 
@@ -185,6 +230,9 @@ export default function SessionCareLogPage() {
   const router = useRouter();
 
   const sessionId = params.sessionId;
+  const [email, setEmail] = useState<string | undefined>("");
+  const [displayName, setDisplayName] = useState("CareOS Family");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [family, setFamily] = useState<Family | null>(null);
   const [session, setSession] = useState<CareSession | null>(null);
   const [dependent, setDependent] = useState<Dependent | null>(null);
@@ -192,6 +240,11 @@ export default function SessionCareLogPage() {
   const [loading, setLoading] = useState(true);
   const [savingActionId, setSavingActionId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [careNote, setCareNote] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoCaption, setPhotoCaption] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [addedForm, setAddedForm] = useState<AddedActionForm>({
@@ -209,6 +262,11 @@ export default function SessionCareLogPage() {
       router.push("/sign-in");
       return;
     }
+
+    const profile = getProfileFromUser(userData.user);
+    setEmail(profile.email);
+    setDisplayName(profile.displayName);
+    setAvatarUrl(profile.avatarUrl);
 
     const { data: familyData } = await supabase
       .from("families")
@@ -273,6 +331,22 @@ export default function SessionCareLogPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  useEffect(() => {
+    if (!session?.actual_started_at || session.status !== "active") {
+      setElapsedSeconds(getDurationSeconds(session?.actual_started_at || null, session?.actual_ended_at || null));
+      return;
+    }
+
+    const updateElapsed = () => {
+      setElapsedSeconds(getDurationSeconds(session.actual_started_at, new Date().toISOString()));
+    };
+
+    updateElapsed();
+    const interval = window.setInterval(updateElapsed, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [session?.actual_ended_at, session?.actual_started_at, session?.status]);
+
   const plannedActions = Array.isArray(session?.planned_actions) ? session.planned_actions : [];
   const plannedEventsByActionId = useMemo(() => {
     return events.reduce<Record<string, CareEvent>>((acc, event) => {
@@ -283,10 +357,103 @@ export default function SessionCareLogPage() {
     }, {});
   }, [events]);
   const addedEvents = useMemo(() => events.filter((event) => event.source === "added"), [events]);
+  const photoEvents = useMemo(() => events.filter((event) => event.event_type === "photo" && event.photo_url), [events]);
+  const noteEvents = useMemo(() => events.filter((event) => event.event_type === "note"), [events]);
   const completedPlannedCount = plannedActions.filter((action) => plannedEventsByActionId[action.id]?.completed_at).length;
   const completedAddedCount = addedEvents.filter((event) => event.completed_at).length;
   const totalCareActions = plannedActions.length + addedEvents.length;
   const completedCareActions = completedPlannedCount + completedAddedCount;
+  const completedEvents = useMemo(() => {
+    return events
+      .filter((event) => event.completed_at)
+      .sort((first, second) => {
+        const firstTime = first.completed_at ? new Date(first.completed_at).getTime() : 0;
+        const secondTime = second.completed_at ? new Date(second.completed_at).getTime() : 0;
+        return firstTime - secondTime;
+      });
+  }, [events]);
+
+  const actualDurationSeconds =
+    session?.status === "active"
+      ? elapsedSeconds
+      : getDurationSeconds(session?.actual_started_at || null, session?.actual_ended_at || null);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push("/sign-in");
+  }
+
+  async function startCare() {
+    if (!family || !session || session.status === "cancelled") return;
+
+    const now = new Date().toISOString();
+    setSavingActionId("start-care");
+    setMessage(null);
+    setMessageType(null);
+
+    const { data, error } = await supabase
+      .from("care_sessions")
+      .update({
+        status: "active",
+        actual_started_at: session.actual_started_at || now,
+      })
+      .eq("id", session.id)
+      .eq("family_id", family.id)
+      .select(sessionSelect)
+      .maybeSingle();
+
+    setSavingActionId(null);
+
+    if (error || !data) {
+      setMessage(error?.message || "Care could not be started.");
+      setMessageType("error");
+      return;
+    }
+
+    const updatedSession = data as CareSession;
+    updatedSession.planned_actions = Array.isArray(updatedSession.planned_actions)
+      ? updatedSession.planned_actions
+      : [];
+    setSession(updatedSession);
+    setMessage("Care started.");
+    setMessageType("success");
+  }
+
+  async function endCare() {
+    if (!family || !session || session.status !== "active") return;
+
+    const now = new Date().toISOString();
+    setSavingActionId("end-care");
+    setMessage(null);
+    setMessageType(null);
+
+    const { data, error } = await supabase
+      .from("care_sessions")
+      .update({
+        status: "completed",
+        actual_ended_at: session.actual_ended_at || now,
+      })
+      .eq("id", session.id)
+      .eq("family_id", family.id)
+      .select(sessionSelect)
+      .maybeSingle();
+
+    setSavingActionId(null);
+
+    if (error || !data) {
+      setMessage(error?.message || "Care could not be ended.");
+      setMessageType("error");
+      return;
+    }
+
+    const updatedSession = data as CareSession;
+    updatedSession.planned_actions = Array.isArray(updatedSession.planned_actions)
+      ? updatedSession.planned_actions
+      : [];
+    setSession(updatedSession);
+    setMessage("Care completed.");
+    setMessageType("success");
+  }
 
   async function completePlannedAction(action: PlannedAction) {
     if (!family || !session || !dependent) return;
@@ -408,6 +575,112 @@ export default function SessionCareLogPage() {
     await loadCareLog();
   }
 
+  async function addCareNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!family || !session || !dependent) return;
+
+    const notes = careNote.trim();
+    if (!notes) {
+      setMessage("Please add a care note first.");
+      setMessageType("error");
+      return;
+    }
+
+    setSavingActionId("add-care-note");
+    setMessage(null);
+    setMessageType(null);
+
+    const { error } = await supabase.from("care_events").insert({
+      family_id: family.id,
+      session_id: session.id,
+      dependent_id: dependent.id,
+      source: "added",
+      planned_action_id: null,
+      event_type: "note",
+      label: "Care Note",
+      notes,
+      completed_at: new Date().toISOString(),
+    });
+
+    setSavingActionId(null);
+
+    if (error) {
+      setMessage(error.message || "Care note could not be added.");
+      setMessageType("error");
+      return;
+    }
+
+    setCareNote("");
+    setMessage("Care note added.");
+    setMessageType("success");
+    await loadCareLog();
+  }
+
+  async function addCarePhoto(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!family || !session || !dependent || !photoFile) {
+      setMessage("Please choose a photo first.");
+      setMessageType("error");
+      return;
+    }
+
+    if (!photoFile.type.startsWith("image/")) {
+      setMessage("Please choose an image file.");
+      setMessageType("error");
+      return;
+    }
+
+    setSavingActionId("add-care-photo");
+    setMessage(null);
+    setMessageType(null);
+
+    const safeName = photoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, "-");
+    const storagePath = `${family.id}/${dependent.id}/${session.id}/${Date.now()}-${safeName}`;
+    const { error: uploadError } = await supabase.storage
+      .from("care-photos")
+      .upload(storagePath, photoFile, { cacheControl: "3600", upsert: false });
+
+    if (uploadError) {
+      setSavingActionId(null);
+      setMessage(uploadError.message || "Photo could not be uploaded.");
+      setMessageType("error");
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage.from("care-photos").getPublicUrl(storagePath);
+    const photoUrl = publicUrlData.publicUrl;
+    const notes = photoCaption.trim();
+
+    const { error } = await supabase.from("care_events").insert({
+      family_id: family.id,
+      session_id: session.id,
+      dependent_id: dependent.id,
+      source: "added",
+      planned_action_id: null,
+      event_type: "photo",
+      label: "Photo",
+      notes: notes || null,
+      photo_url: photoUrl,
+      completed_at: new Date().toISOString(),
+    });
+
+    setSavingActionId(null);
+
+    if (error) {
+      setMessage(error.message || "Photo could not be added to Care Log.");
+      setMessageType("error");
+      return;
+    }
+
+    setPhotoFile(null);
+    setPhotoCaption("");
+    setMessage("Photo added.");
+    setMessageType("success");
+    await loadCareLog();
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
@@ -440,9 +713,66 @@ export default function SessionCareLogPage() {
   const typeStyle = typeConfig[dependent.type];
   const statusStyle = statusConfig[session.status] || statusConfig.scheduled;
   const initial = dependent.name.slice(0, 1).toUpperCase();
+  const profileInitial = displayName.slice(0, 1).toUpperCase();
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-16 text-[#0F172A]">
+    <main className="min-h-screen bg-[#F8FAFC] pb-28 text-[#0F172A]">
+      <header className="sticky top-0 z-30 border-b border-blue-100/70 bg-white/95 px-5 py-4 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+          <button onClick={() => router.push("/dashboard")} className="text-left">
+            <CareOSLogo />
+          </button>
+
+          <div className="hidden items-center gap-2 rounded-full bg-[#F8FAFC] p-1 md:flex">
+            {navItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => router.push(item.href)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  item.label === "Care Log"
+                    ? "bg-[#2563EB] text-white shadow-sm shadow-blue-200"
+                    : "text-[#64748B] hover:bg-white hover:text-[#2563EB]"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              className="flex items-center gap-3 rounded-[22px] bg-white px-3 py-2 pr-4 shadow-sm ring-1 ring-blue-100"
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-10 w-10 rounded-2xl object-cover" />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-bold text-white">
+                  {profileInitial}
+                </div>
+              )}
+              <div className="hidden text-left sm:block">
+                <p className="text-sm font-semibold text-[#0F172A]">{displayName}</p>
+                <p className="max-w-[190px] truncate text-xs text-[#64748B]">{email}</p>
+              </div>
+              <span className="text-xs text-[#64748B]">v</span>
+            </button>
+
+            {accountMenuOpen && (
+              <div className="absolute right-0 mt-3 w-64 rounded-[24px] bg-white p-2 shadow-2xl shadow-blue-100/70 ring-1 ring-blue-100">
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left text-sm font-medium text-[#EF4444] transition hover:bg-red-50"
+                >
+                  Sign Out
+                  <span>-&gt;</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
       <section className="mx-auto max-w-6xl px-5 py-7 md:py-10">
         <button
           onClick={() => router.push("/care-log")}
@@ -497,6 +827,76 @@ export default function SessionCareLogPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Care time</p>
                   <p className="mt-1 text-sm font-black text-[#0F172A]">{formatTimeRange(session.starts_at, session.ends_at)}</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+          <div className="grid gap-5 lg:grid-cols-[0.78fr_1.22fr]">
+            <div className="rounded-[30px] bg-gradient-to-br from-emerald-50 to-blue-50 p-6">
+              {session.status === "active" && session.actual_started_at ? (
+                <>
+                  <p className="text-4xl font-black text-[#0F172A]">{formatClockDuration(actualDurationSeconds)}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#64748B]">elapsed care time</p>
+                </>
+              ) : session.status === "completed" ? (
+                <>
+                  <p className="text-4xl font-black text-[#0F172A]">{formatClockDuration(actualDurationSeconds)}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#64748B]">actual care duration</p>
+                </>
+              ) : session.status === "cancelled" ? (
+                <>
+                  <p className="text-2xl font-black text-[#0F172A]">This care session was cancelled.</p>
+                  <p className="mt-2 text-sm font-semibold text-[#64748B]">Care cannot be started for this session.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-black text-[#0F172A]">Care has not started yet</p>
+                  <p className="mt-2 text-sm font-semibold text-[#64748B]">Start care when the caregiver begins.</p>
+                </>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[24px] bg-[#F8FAFC] p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Scheduled</p>
+                <p className="mt-1 text-sm font-black text-[#0F172A]">{formatTimeRange(session.starts_at, session.ends_at)}</p>
+              </div>
+              <div className="rounded-[24px] bg-[#F8FAFC] p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Actual</p>
+                <p className="mt-1 text-sm font-black text-[#0F172A]">
+                  {session.actual_started_at
+                    ? `${formatCompletedTime(session.actual_started_at)} - ${
+                        session.actual_ended_at ? formatCompletedTime(session.actual_ended_at) : "in progress"
+                      }`
+                    : "Not started yet"}
+                </p>
+              </div>
+              <div className="sm:col-span-2">
+                {session.status === "scheduled" && (
+                  <button
+                    onClick={startCare}
+                    disabled={Boolean(savingActionId)}
+                    className="w-full rounded-[22px] bg-[#2563EB] px-6 py-4 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  >
+                    {savingActionId === "start-care" ? "Starting..." : "Start Care"}
+                  </button>
+                )}
+                {session.status === "active" && (
+                  <button
+                    onClick={endCare}
+                    disabled={Boolean(savingActionId)}
+                    className="w-full rounded-[22px] border border-red-100 bg-red-50 px-6 py-4 text-sm font-black text-[#EF4444] transition hover:bg-[#EF4444] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    {savingActionId === "end-care" ? "Ending..." : "End Care"}
+                  </button>
+                )}
+                {session.status === "completed" && (
+                  <div className="rounded-[22px] bg-emerald-50 px-6 py-4 text-center text-sm font-black text-[#16A34A]">
+                    Care completed
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -557,6 +957,93 @@ export default function SessionCareLogPage() {
                       </article>
                     );
                   })}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+              <div>
+                <p className="text-sm font-semibold text-[#64748B]">Photos</p>
+                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Photos</h2>
+              </div>
+
+              <form onSubmit={addCarePhoto} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Add Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Caption optional</span>
+                    <input
+                      value={photoCaption}
+                      onChange={(event) => setPhotoCaption(event.target.value)}
+                      placeholder="What is happening?"
+                      className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  disabled={Boolean(savingActionId)}
+                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                >
+                  {savingActionId === "add-care-photo" ? "Adding..." : "Add Photo"}
+                </button>
+              </form>
+
+              {photoEvents.length > 0 && (
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {photoEvents.map((event) => (
+                    <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-3">
+                      <img src={event.photo_url || ""} alt={event.notes || "Care photo"} className="h-40 w-full rounded-[20px] object-cover" />
+                      {event.notes && <p className="mt-3 text-sm font-semibold text-[#0F172A]">{event.notes}</p>}
+                      <p className="mt-1 text-xs font-semibold text-[#64748B]">{formatCompletedTime(event.completed_at)}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+              <div>
+                <p className="text-sm font-semibold text-[#64748B]">Care Notes</p>
+                <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Care Notes</h2>
+              </div>
+
+              <form onSubmit={addCareNote} className="mt-6 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-5">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Add a care note...</span>
+                  <textarea
+                    value={careNote}
+                    onChange={(event) => setCareNote(event.target.value)}
+                    className="mt-2 min-h-28 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                    placeholder="Add a care note..."
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={Boolean(savingActionId)}
+                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                >
+                  {savingActionId === "add-care-note" ? "Adding..." : "Add Note"}
+                </button>
+              </form>
+
+              {noteEvents.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  {noteEvents.map((event) => (
+                    <article key={event.id} className="rounded-[24px] bg-[#F8FAFC] p-4">
+                      <p className="text-sm font-black text-[#0F172A]">{event.label}</p>
+                      {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
+                      <p className="mt-2 text-xs font-semibold text-[#64748B]">{formatCompletedTime(event.completed_at)}</p>
+                    </article>
+                  ))}
                 </div>
               )}
             </section>
@@ -678,14 +1165,55 @@ export default function SessionCareLogPage() {
               <p className="mt-2 text-sm font-semibold text-[#64748B]">care actions completed</p>
             </div>
             <div className="mt-5 rounded-[28px] bg-[#F8FAFC] p-5">
-              <p className="text-sm font-black text-[#0F172A]">What actually happened</p>
-              <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                Completed care actions will become the foundation for the family&apos;s Care Story.
-              </p>
+              <p className="text-sm font-black text-[#0F172A]">What Actually Happened</p>
+              {completedEvents.length === 0 ? (
+                <p className="mt-2 text-sm leading-6 text-[#64748B]">
+                  Completed care actions will appear here as care happens.
+                </p>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {completedEvents.map((event) => (
+                    <article key={event.id} className="rounded-[22px] bg-white p-4 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-[#7C3AED]">
+                          <PlannedActionIcon type={toPlannedActionIconType(event.event_type)} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-black text-[#0F172A]">{event.label}</p>
+                            <span className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(event.completed_at)}</span>
+                          </div>
+                          {event.notes && <p className="mt-2 text-sm leading-6 text-[#64748B]">{event.notes}</p>}
+                          {event.photo_url && (
+                            <img src={event.photo_url} alt={event.notes || "Care photo"} className="mt-3 h-36 w-full rounded-[20px] object-cover" />
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         </section>
       </section>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-blue-100 bg-white/95 px-4 py-3 backdrop-blur-xl md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => router.push(item.href)}
+              className={`rounded-2xl px-2 py-2 text-center text-[11px] font-semibold ${
+                item.label === "Care Log" ? "bg-blue-50 text-[#2563EB]" : "text-[#64748B]"
+              }`}
+            >
+              <div className="text-lg leading-5">{item.icon}</div>
+              <div className="mt-1">{item.label}</div>
+            </button>
+          ))}
+        </div>
+      </nav>
     </main>
   );
 }
