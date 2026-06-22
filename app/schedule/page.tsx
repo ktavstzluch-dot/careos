@@ -230,6 +230,19 @@ function getVisibleMonthRange(monthDate: Date) {
   return { start, end };
 }
 
+function getDependentTypeDotClass(type: string | undefined) {
+  switch (type?.toLowerCase()) {
+    case "child":
+      return "bg-violet-500";
+    case "pet":
+      return "bg-emerald-500";
+    case "elder":
+      return "bg-blue-500";
+    default:
+      return "bg-slate-300";
+  }
+}
+
 function getSelectedCarePlanHeading(selectedDate: Date) {
   const today = startOfLocalDay(new Date());
   const tomorrow = new Date(today);
@@ -410,14 +423,18 @@ export default function SchedulePage() {
     });
   }, [activeFilter, dependentById, selectedDate, sessions]);
 
-  const sessionDates = useMemo(() => {
-    return sessions.reduce<Record<string, number>>((acc, session) => {
+  const sessionTypesByDate = useMemo(() => {
+    return sessions.reduce<Record<string, DependentType[]>>((acc, session) => {
       if (!session.starts_at) return acc;
+      const dependentType = dependentById[session.dependent_id]?.type;
+      if (!dependentType) return acc;
+
       const key = getLocalDateKey(new Date(session.starts_at));
-      acc[key] = (acc[key] || 0) + 1;
+      const current = acc[key] || [];
+      acc[key] = current.includes(dependentType) ? current : [...current, dependentType];
       return acc;
     }, {});
-  }, [sessions]);
+  }, [dependentById, sessions]);
 
   const selectedCarePlanHeading = getSelectedCarePlanHeading(selectedDate);
 
@@ -658,7 +675,7 @@ export default function SchedulePage() {
               <div className="mt-2 grid grid-cols-7 gap-1.5">
                 {monthDays.map((item) => {
                   const selected = isSameLocalDate(item.date, selectedDate);
-                  const hasSessions = Boolean(sessionDates[item.dateKey]);
+                  const sessionTypes = sessionTypesByDate[item.dateKey] || [];
 
                   return (
                     <button
@@ -681,11 +698,11 @@ export default function SchedulePage() {
                       }`}
                     >
                       <div className="text-sm font-black leading-none">{item.dayNumber}</div>
-                      <span
-                        className={`mx-auto mt-1.5 block h-1.5 w-1.5 rounded-full ${
-                          hasSessions ? (selected ? "bg-white" : "bg-[#2563EB]") : "bg-transparent"
-                        }`}
-                      />
+                      <div className="mt-1.5 flex h-1.5 justify-center gap-1">
+                        {sessionTypes.map((type) => (
+                          <span key={type} className={`h-1.5 w-1.5 rounded-full ${getDependentTypeDotClass(type)}`} />
+                        ))}
+                      </div>
                     </button>
                   );
                 })}

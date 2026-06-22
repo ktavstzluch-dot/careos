@@ -160,10 +160,69 @@ function DependentTypeIcon({ type }: { type: DependentType }) {
   );
 }
 
-function getTodayStart() {
-  const start = new Date();
+function startOfLocalDay(date: Date) {
+  const start = new Date(date);
   start.setHours(0, 0, 0, 0);
   return start;
+}
+
+function startOfLocalMonth(date: Date) {
+  const start = startOfLocalDay(date);
+  start.setDate(1);
+  return start;
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isSameLocalDate(first: Date, second: Date) {
+  return getLocalDateKey(first) === getLocalDateKey(second);
+}
+
+function getMonthDays(baseDate = new Date()) {
+  const today = startOfLocalDay(new Date());
+  const monthStart = startOfLocalMonth(baseDate);
+  const nextMonth = startOfLocalMonth(baseDate);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const dayCount = Math.round((nextMonth.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000));
+
+  return Array.from({ length: dayCount }).map((_, index) => {
+    const date = new Date(monthStart);
+    date.setDate(monthStart.getDate() + index);
+
+    return {
+      day: new Intl.DateTimeFormat("en", { weekday: "short" }).format(date),
+      date,
+      dateKey: getLocalDateKey(date),
+      dayNumber: date.getDate(),
+      isToday: isSameLocalDate(date, today),
+    };
+  });
+}
+
+function getVisibleMonthRange(monthDate: Date) {
+  const start = startOfLocalMonth(monthDate);
+  const end = startOfLocalMonth(monthDate);
+  end.setMonth(end.getMonth() + 1);
+
+  return { start, end };
+}
+
+function getDependentTypeDotClass(type: string | undefined) {
+  switch (type?.toLowerCase()) {
+    case "child":
+      return "bg-violet-500";
+    case "pet":
+      return "bg-emerald-500";
+    case "elder":
+      return "bg-blue-500";
+    default:
+      return "bg-slate-300";
+  }
 }
 
 function formatDate(value: string | null) {
@@ -197,8 +256,12 @@ export default function CareLogOverviewPage() {
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [sessions, setSessions] = useState<CareSession[]>([]);
   const [events, setEvents] = useState<CareEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState(() => startOfLocalDay(new Date()));
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfLocalMonth(new Date()));
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const monthDays = useMemo(() => getMonthDays(visibleMonth), [visibleMonth]);
+  const monthTitle = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(visibleMonth);
 
   async function loadCareLogOverview() {
     setLoading(true);
@@ -237,13 +300,15 @@ export default function CareLogOverviewPage() {
 
     setDependents(((dependentsData || []) as Dependent[]).filter((item) => ["child", "pet", "elder"].includes(item.type)));
 
+    const { start, end } = getVisibleMonthRange(visibleMonth);
     const { data: sessionsData } = await supabase
       .from("care_sessions")
       .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, created_at")
       .eq("family_id", familyData.id)
-      .gte("starts_at", getTodayStart().toISOString())
+      .gte("starts_at", start.toISOString())
+      .lt("starts_at", end.toISOString())
       .order("starts_at", { ascending: true })
-      .limit(20);
+      .limit(100);
 
     const loadedSessions = ((sessionsData || []) as CareSession[]).map((session) => ({
       ...session,
@@ -272,7 +337,7 @@ export default function CareLogOverviewPage() {
   useEffect(() => {
     loadCareLogOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [visibleMonth]);
 
   const initials = displayName.slice(0, 1).toUpperCase();
 
@@ -289,6 +354,33 @@ export default function CareLogOverviewPage() {
       return acc;
     }, {});
   }, [events]);
+
+  const selectedSessions = useMemo(() => {
+    return sessions.filter((session) => {
+      if (!session.starts_at) return false;
+      return isSameLocalDate(new Date(session.starts_at), selectedDate);
+    });
+  }, [selectedDate, sessions]);
+
+  const sessionTypesByDate = useMemo(() => {
+    return sessions.reduce<Record<string, DependentType[]>>((acc, session) => {
+      if (!session.starts_at) return acc;
+      const dependentType = dependentById[session.dependent_id]?.type;
+      if (!dependentType) return acc;
+
+      const key = getLocalDateKey(new Date(session.starts_at));
+      const current = acc[key] || [];
+      acc[key] = current.includes(dependentType) ? current : [...current, dependentType];
+      return acc;
+    }, {});
+  }, [dependentById, sessions]);
+
+  function changeMonth(direction: -1 | 1) {
+    const nextMonth = startOfLocalMonth(visibleMonth);
+    nextMonth.setMonth(nextMonth.getMonth() + direction);
+    setVisibleMonth(nextMonth);
+    setSelectedDate(startOfLocalDay(nextMonth));
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -363,25 +455,83 @@ export default function CareLogOverviewPage() {
 
       <section className="mx-auto max-w-6xl px-5 py-7 md:py-9">
         <div className="mb-6">
-          <p className="text-sm font-semibold text-[#64748B]">Care Log</p>
-          <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care Log</h1>
+          <h1 className="text-4xl font-black tracking-tight text-[#0F172A]">Care Log</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#64748B]">
             Track care from your scheduled sessions.
           </p>
         </div>
 
         <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-[28px] bg-[#F8FAFC] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#64748B]">Care calendar</p>
+                <h2 className="mt-1 text-lg font-black text-[#0F172A]">{monthTitle}</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => changeMonth(-1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#64748B] shadow-sm ring-1 ring-blue-100 transition hover:text-[#2563EB]"
+                  aria-label="Previous month"
+                >
+                  &lt;
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeMonth(1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-[#64748B] shadow-sm ring-1 ring-blue-100 transition hover:text-[#2563EB]"
+                  aria-label="Next month"
+                >
+                  &gt;
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+              {monthDays.map((item) => {
+                const selected = isSameLocalDate(item.date, selectedDate);
+                const sessionTypes = sessionTypesByDate[item.dateKey] || [];
+
+                return (
+                  <button
+                    key={item.dateKey}
+                    type="button"
+                    onClick={() => setSelectedDate(startOfLocalDay(item.date))}
+                    className={`min-w-[54px] rounded-2xl px-2 py-3 text-center transition ${
+                      selected
+                        ? "bg-[#2563EB] text-white shadow-lg shadow-blue-200"
+                        : item.isToday
+                          ? "bg-white text-[#2563EB] ring-1 ring-blue-200"
+                          : "bg-white text-[#64748B] hover:bg-blue-50 hover:text-[#2563EB]"
+                    }`}
+                  >
+                    <div className="text-[10px] font-bold uppercase tracking-[0.12em] opacity-80">{item.day.slice(0, 3)}</div>
+                    <div className="mt-1 text-sm font-black leading-none">{item.dayNumber}</div>
+                    <div className="mt-2 flex h-1.5 justify-center gap-1">
+                      {sessionTypes.map((type) => (
+                        <span key={type} className={`h-1.5 w-1.5 rounded-full ${getDependentTypeDotClass(type)}`} />
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-[#64748B]">Care Event</p>
-              <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Next Sessions</h2>
+              <h2 className="text-3xl font-black text-[#0F172A]">Next Sessions</h2>
+              <p className="mt-1 text-sm font-semibold text-[#64748B]">
+                {new Intl.DateTimeFormat("en", { weekday: "long", month: "long", day: "numeric" }).format(selectedDate)}
+              </p>
             </div>
             <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
               {family?.name}
             </span>
           </div>
 
-          {sessions.length === 0 ? (
+          {selectedSessions.length === 0 ? (
             <div className="mt-7 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-10 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-[#2563EB] shadow-sm">
                 <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
@@ -391,7 +541,7 @@ export default function CareLogOverviewPage() {
                   <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
                 </svg>
               </div>
-              <p className="mt-4 font-semibold text-[#0F172A]">No upcoming care sessions</p>
+              <p className="mt-4 font-semibold text-[#0F172A]">No care sessions for this day</p>
               <p className="mt-2 text-sm text-[#64748B]">Create a session from Schedule to start tracking care.</p>
               <button
                 onClick={() => router.push("/schedule")}
@@ -402,7 +552,7 @@ export default function CareLogOverviewPage() {
             </div>
           ) : (
             <div className="mt-7 space-y-4">
-              {sessions.map((session) => {
+              {selectedSessions.map((session) => {
                 const dependent = dependentById[session.dependent_id];
                 const typeStyle = dependent ? typeConfig[dependent.type] : null;
                 const statusStyle = statusConfig[session.status] || statusConfig.scheduled;
