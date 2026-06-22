@@ -587,9 +587,9 @@ export default function DependentProfilePage() {
           ←
         </button>
 
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="space-y-6">
-            <section className="overflow-hidden rounded-[36px] border border-blue-100 bg-white shadow-xl shadow-blue-100/45">
+        <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+          <div className="contents">
+            <section className="order-1 overflow-hidden rounded-[36px] border border-blue-100 bg-white shadow-xl shadow-blue-100/45 lg:col-start-1 lg:row-start-1">
               <div className="bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-7">
                 <div className="flex items-start gap-5">
                   {dependent.photo_url ? (
@@ -724,10 +724,10 @@ export default function DependentProfilePage() {
               </div>
             </section>
 
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+            <section className="order-3 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45 lg:col-start-1 lg:row-start-2">
               <h2 className="text-2xl font-black text-[#0F172A]">Care Tools</h2>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <button
                   onClick={() => router.push("/schedule")}
                   className="group rounded-[26px] border border-blue-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/60"
@@ -766,22 +766,32 @@ export default function DependentProfilePage() {
             </section>
           </div>
 
-          <div className="space-y-6">
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-              <div className="flex items-center justify-between">
+          <div className="contents">
+            <section className="order-2 rounded-[36px] border border-blue-100 bg-white p-7 shadow-xl shadow-blue-100/45 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-[#64748B]">Care Plan</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Important details</h2>
+                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Important Details</h2>
                 </div>
-                <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
-                  {family?.name || "Family"}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
+                    {family?.name || "Family"}
+                  </span>
+                  <button
+                    type="button"
+                    disabled
+                    title="Details editing is coming soon"
+                    className="rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-black text-[#2563EB] opacity-75"
+                  >
+                    Edit details
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {config.fields.map((field) => (
-                  <div key={field.label} className="rounded-[26px] bg-[#F8FAFC] p-5">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-sm">
+                  <div key={field.label} className="rounded-[26px] bg-[#F8FAFC] p-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-sm">
                       <CareDetailIcon label={field.label} />
                     </div>
                     <p className="mt-4 text-sm font-black text-[#0F172A]">{field.label}</p>
