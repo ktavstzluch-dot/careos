@@ -259,6 +259,31 @@ function toDateTimeLocalValue(date: Date) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
+function addOneHourToDateTimeLocal(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  date.setHours(date.getHours() + 1);
+  return toDateTimeLocalValue(date);
+}
+
+function isEndBeforeOrEqualStart(startValue: string, endValue: string) {
+  if (!startValue || !endValue) return false;
+
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+
+  return end <= start;
+}
+
+function ensureEndAfterStart(startValue: string, endValue: string) {
+  if (!startValue || !endValue) return endValue || (startValue ? addOneHourToDateTimeLocal(startValue) : "");
+
+  return isEndBeforeOrEqualStart(startValue, endValue) ? addOneHourToDateTimeLocal(startValue) : endValue;
+}
+
 function getDefaultForm(dependentId = "", selectedDate = new Date()): SessionForm {
   const now = new Date();
   const start = new Date(selectedDate);
@@ -445,6 +470,28 @@ export default function SchedulePage() {
 
   function updateForm(field: keyof SessionForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateStartDateTime(value: string) {
+    setForm((current) => ({
+      ...current,
+      starts_at: value,
+      ends_at: ensureEndAfterStart(value, current.ends_at),
+    }));
+  }
+
+  function updateEndDateTime(value: string) {
+    if (isEndBeforeOrEqualStart(form.starts_at, value)) {
+      setForm((current) => ({
+        ...current,
+        ends_at: addOneHourToDateTimeLocal(current.starts_at),
+      }));
+      setMessage("End time must be after start time.");
+      setMessageType("error");
+      return;
+    }
+
+    setForm((current) => ({ ...current, ends_at: value }));
   }
 
   function togglePlannedAction(type: PlannedActionType) {
@@ -797,7 +844,7 @@ export default function SchedulePage() {
                     <input
                       type="datetime-local"
                       value={form.starts_at}
-                      onChange={(event) => updateForm("starts_at", event.target.value)}
+                      onChange={(event) => updateStartDateTime(event.target.value)}
                       className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                       required
                     />
@@ -808,7 +855,8 @@ export default function SchedulePage() {
                     <input
                       type="datetime-local"
                       value={form.ends_at}
-                      onChange={(event) => updateForm("ends_at", event.target.value)}
+                      min={form.starts_at || undefined}
+                      onChange={(event) => updateEndDateTime(event.target.value)}
                       className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                       required
                     />

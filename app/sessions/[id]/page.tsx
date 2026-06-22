@@ -38,6 +38,7 @@ type CareSession = {
   status: SessionStatus;
   starts_at: string | null;
   ends_at: string | null;
+  actual_ended_at: string | null;
   planned_actions: PlannedAction[];
   notes: string | null;
   instructions: string | null;
@@ -55,7 +56,7 @@ type SessionForm = {
 };
 
 const sessionSelect =
-  "id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, notes, instructions, created_at";
+  "id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, actual_ended_at, planned_actions, notes, instructions, created_at";
 
 const typeConfig: Record<DependentType, { label: string; avatarClass: string; badgeClass: string }> = {
   child: {
@@ -149,6 +150,31 @@ function toDateTimeLocalValue(value: string | null) {
   const date = new Date(value);
   const offsetMs = date.getTimezoneOffset() * 60 * 1000;
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function addOneHourToDateTimeLocal(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  date.setHours(date.getHours() + 1);
+  return toDateTimeLocalValue(date.toISOString());
+}
+
+function isEndBeforeOrEqualStart(startValue: string, endValue: string) {
+  if (!startValue || !endValue) return false;
+
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+
+  return end <= start;
+}
+
+function ensureEndAfterStart(startValue: string, endValue: string) {
+  if (!startValue || !endValue) return endValue || (startValue ? addOneHourToDateTimeLocal(startValue) : "");
+
+  return isEndBeforeOrEqualStart(startValue, endValue) ? addOneHourToDateTimeLocal(startValue) : endValue;
 }
 
 function buildPlannedActions(actionTypes: PlannedActionType[], customInstruction: string): PlannedAction[] {
@@ -286,9 +312,32 @@ export default function SessionPlanPage() {
   const initial = useMemo(() => dependent?.name.slice(0, 1).toUpperCase() || "C", [dependent]);
   const instructions = session?.notes || session?.instructions || "";
   const plannedActions = Array.isArray(session?.planned_actions) ? session.planned_actions : [];
+  const isCompletedSession = Boolean(session && (session.status === "completed" || session.actual_ended_at));
 
   function updateForm(field: keyof SessionForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateStartDateTime(value: string) {
+    setForm((current) => ({
+      ...current,
+      starts_at: value,
+      ends_at: ensureEndAfterStart(value, current.ends_at),
+    }));
+  }
+
+  function updateEndDateTime(value: string) {
+    if (isEndBeforeOrEqualStart(form.starts_at, value)) {
+      setForm((current) => ({
+        ...current,
+        ends_at: addOneHourToDateTimeLocal(current.starts_at),
+      }));
+      setMessage("End time must be after start time.");
+      setMessageType("error");
+      return;
+    }
+
+    setForm((current) => ({ ...current, ends_at: value }));
   }
 
   function togglePlannedAction(type: PlannedActionType) {
@@ -376,6 +425,11 @@ export default function SessionPlanPage() {
 
   async function cancelSession() {
     if (!session || !family) return;
+    if (session.status === "completed" || session.actual_ended_at) {
+      setMessage("Completed care sessions cannot be cancelled.");
+      setMessageType("error");
+      return;
+    }
 
     setSaving(true);
     setMessage(null);
@@ -596,7 +650,7 @@ export default function SessionPlanPage() {
                     <input
                       type="datetime-local"
                       value={form.starts_at}
-                      onChange={(event) => updateForm("starts_at", event.target.value)}
+                      onChange={(event) => updateStartDateTime(event.target.value)}
                       className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                       required
                     />
@@ -606,7 +660,8 @@ export default function SessionPlanPage() {
                     <input
                       type="datetime-local"
                       value={form.ends_at}
-                      onChange={(event) => updateForm("ends_at", event.target.value)}
+                      min={form.starts_at || undefined}
+                      onChange={(event) => updateEndDateTime(event.target.value)}
                       className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                       required
                     />
@@ -664,9 +719,11 @@ export default function SessionPlanPage() {
               <div>
                 <h2 className="text-2xl font-black text-[#0F172A]">Plan actions</h2>
                 <p className="mt-2 text-sm leading-6 text-[#64748B]">
-                  Adjust the planned care before it begins, or cancel the care session if plans change.
+                  {isCompletedSession
+                    ? "This care session is completed and stays available for review."
+                    : "Adjust the planned care before it begins, or cancel the care session if plans change."}
                 </p>
-                {session.status !== "cancelled" && (
+                {session.status !== "cancelled" && !isCompletedSession && (
                   <button
                     onClick={cancelSession}
                     disabled={saving}
