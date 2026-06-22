@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
+type CareEventSource = "planned" | "added";
+type CareEventType = "meal" | "nap" | "walk" | "medicine" | "activity" | "custom" | "note" | "photo";
 
 type Family = {
   id: string;
@@ -33,6 +35,41 @@ type CareSession = {
   actual_started_at: string | null;
   actual_ended_at: string | null;
   created_at: string;
+};
+
+type CareEvent = {
+  id: string;
+  family_id: string;
+  session_id: string;
+  dependent_id: string;
+  source: CareEventSource;
+  planned_action_id: string | null;
+  event_type: CareEventType;
+  label: string;
+  notes: string | null;
+  photo_url: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
+type StoryPhoto = {
+  url: string;
+  created_at: string;
+};
+
+type StoryNote = {
+  text: string;
+  created_at: string;
+};
+
+type StoryData = {
+  dependent: Dependent;
+  session: CareSession;
+  completedActions: CareEvent[];
+  photos: StoryPhoto[];
+  notes: StoryNote[];
+  durationMinutes: number;
+  caregiver: string;
 };
 
 const navItems = [
@@ -135,6 +172,17 @@ function formatTimeRange(startValue: string | null, endValue: string | null) {
   return `${formatter.format(new Date(startValue))} - ${formatter.format(new Date(endValue))}`;
 }
 
+function getDurationMinutes(startValue: string | null, endValue: string | null) {
+  if (!startValue || !endValue) return 0;
+
+  const start = new Date(startValue).getTime();
+  const end = new Date(endValue).getTime();
+
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
+
+  return Math.round((end - start) / 60000);
+}
+
 export default function CareStoryPlaceholderPage() {
   const router = useRouter();
   const params = useParams();
@@ -146,6 +194,7 @@ export default function CareStoryPlaceholderPage() {
   const [family, setFamily] = useState<Family | null>(null);
   const [session, setSession] = useState<CareSession | null>(null);
   const [dependent, setDependent] = useState<Dependent | null>(null);
+  const [events, setEvents] = useState<CareEvent[]>([]);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -188,6 +237,7 @@ export default function CareStoryPlaceholderPage() {
       if (!sessionData) {
         setSession(null);
         setDependent(null);
+        setEvents([]);
         setLoading(false);
         return;
       }
@@ -203,6 +253,15 @@ export default function CareStoryPlaceholderPage() {
         .maybeSingle();
 
       setDependent(dependentData as Dependent | null);
+
+      const { data: eventsData } = await supabase
+        .from("care_events")
+        .select("id, family_id, session_id, dependent_id, source, planned_action_id, event_type, label, notes, photo_url, completed_at, created_at")
+        .eq("family_id", familyData.id)
+        .eq("session_id", loadedSession.id)
+        .order("created_at", { ascending: true });
+
+      setEvents((eventsData || []) as CareEvent[]);
       setLoading(false);
     }
 
@@ -214,6 +273,43 @@ export default function CareStoryPlaceholderPage() {
   const initials = displayName.slice(0, 1).toUpperCase();
   const dependentInitial = dependent?.name.slice(0, 1).toUpperCase() || "?";
   const typeStyle = dependent ? typeConfig[dependent.type] : null;
+  const storyData = useMemo<StoryData | null>(() => {
+    if (!session || !dependent) return null;
+
+    const completedActions = events.filter(
+      (event) => event.event_type !== "note" && event.event_type !== "photo" && Boolean(event.completed_at),
+    );
+    const photos = events
+      .filter((event) => event.event_type === "photo" && Boolean(event.photo_url))
+      .map((event) => ({
+        url: event.photo_url || "",
+        created_at: event.created_at,
+      }));
+    const notes = events
+      .filter((event) => event.event_type === "note" && Boolean(event.notes?.trim()))
+      .map((event) => ({
+        text: event.notes?.trim() || "",
+        created_at: event.created_at,
+      }));
+    const durationMinutes =
+      getDurationMinutes(session.actual_started_at, session.actual_ended_at) ||
+      getDurationMinutes(session.starts_at, session.ends_at);
+
+    return {
+      dependent,
+      session,
+      completedActions,
+      photos,
+      notes,
+      durationMinutes,
+      caregiver: session.caregiver_name || "Caregiver",
+    };
+  }, [dependent, events, session]);
+
+  const completedActionsCount = storyData?.completedActions.length || 0;
+  const photoCount = storyData?.photos.length || 0;
+  const noteCount = storyData?.notes.length || 0;
+  const durationMinutes = storyData?.durationMinutes || 0;
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-24 text-[#0F172A]">
@@ -367,6 +463,28 @@ export default function CareStoryPlaceholderPage() {
               <p className="mt-6 rounded-[24px] bg-emerald-50 px-5 py-4 text-sm font-black text-[#16A34A]">
                 Care Story is coming soon.
               </p>
+            </section>
+
+            <section className="mt-8 rounded-[32px] border border-blue-100 bg-white p-6 shadow-sm">
+              <h3 className="text-2xl font-black text-[#0F172A]">Story Data Ready</h3>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Completed Actions</p>
+                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{completedActionsCount}</p>
+                </div>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Photos</p>
+                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{photoCount}</p>
+                </div>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Notes</p>
+                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{noteCount}</p>
+                </div>
+                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Duration</p>
+                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{durationMinutes} minutes</p>
+                </div>
+              </div>
             </section>
           </>
         )}
