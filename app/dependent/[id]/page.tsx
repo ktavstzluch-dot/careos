@@ -587,7 +587,7 @@ export default function DependentProfilePage() {
           ←
         </button>
 
-        <div className="grid gap-6 lg:grid-cols-[0.78fr_1.22fr] lg:items-start">
+        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
           <div className="contents">
             <section className="order-1 overflow-hidden rounded-[36px] border border-blue-100 bg-white shadow-xl shadow-blue-100/45 lg:col-start-1 lg:row-start-1">
               <div className="bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-7">
@@ -724,10 +724,10 @@ export default function DependentProfilePage() {
               </div>
             </section>
 
-            <section className="order-3 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45 lg:col-start-1 lg:row-start-2">
+            <section className="order-3 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45 lg:col-span-2 lg:row-start-2">
               <h2 className="text-2xl font-black text-[#0F172A]">Care Tools</h2>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <button
                   onClick={() => router.push("/schedule")}
                   className="group rounded-[26px] border border-blue-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/60"
@@ -767,7 +767,7 @@ export default function DependentProfilePage() {
           </div>
 
           <div className="contents">
-            <section className="order-2 rounded-[36px] border border-blue-100 bg-white p-7 shadow-xl shadow-blue-100/45 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+            <section className="order-2 rounded-[36px] border border-blue-100 bg-white p-7 shadow-xl shadow-blue-100/45 lg:col-start-2 lg:row-start-1">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-[#64748B]">Care Plan</p>
