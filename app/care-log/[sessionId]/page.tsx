@@ -73,13 +73,6 @@ type AddedActionForm = {
 
 type CareWorkspaceTab = "plan" | "added" | "photos" | "notes" | "happened";
 
-type CareHappenedItem = {
-  id: string;
-  time: string | null;
-  label: string;
-  type: CareEventType | "start" | "end";
-};
-
 const careWorkspaceTabs: { id: CareWorkspaceTab; label: string }[] = [
   { id: "plan", label: "Today's Plan" },
   { id: "added", label: "Added During Care" },
@@ -445,57 +438,22 @@ export default function SessionCareLogPage() {
 
     return [...plannedItems, ...addedItems];
   }, [addedEvents, plannedActions, plannedEventsByActionId]);
-  const whatHappenedItems = useMemo<CareHappenedItem[]>(() => {
-    const items: CareHappenedItem[] = [];
-
-    if (session?.actual_started_at) {
-      items.push({
-        id: "care-started",
-        time: session.actual_started_at,
-        label: "Care started",
-        type: "start",
-      });
-    }
-
-    events
-      .filter((event) => event.completed_at)
-      .forEach((event) => {
-        items.push({
-          id: event.id,
-          time: event.completed_at,
-          label:
-            event.event_type === "note"
-              ? "Note added"
-              : event.event_type === "photo"
-                ? "Photo added"
-                : `${event.label} completed`,
-          type: event.event_type,
-        });
-      });
-
-    if (session?.actual_ended_at) {
-      items.push({
-        id: "care-ended",
-        time: session.actual_ended_at,
-        label: "Care ended",
-        type: "end",
-      });
-    }
-
-    return items.sort((first, second) => {
-      const firstTime = first.time ? new Date(first.time).getTime() : 0;
-      const secondTime = second.time ? new Date(second.time).getTime() : 0;
-      return firstTime - secondTime;
-    });
-  }, [events, session?.actual_ended_at, session?.actual_started_at]);
+  const isCareActive = Boolean(session?.status === "active" && session.actual_started_at && !session.actual_ended_at);
+  const isCareNotStarted = Boolean(session && !session.actual_started_at);
+  const isCareCompleted = Boolean(session && (session.status === "completed" || session.actual_ended_at));
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/sign-in");
   }
 
+  function showCareLockedMessage(message: string) {
+    setMessage(isCareCompleted && !isCareNotStarted ? "Care is completed. This Care Log is read-only." : message);
+    setMessageType("error");
+  }
+
   async function startCare() {
-    if (!family || !session || session.status === "cancelled") return;
+    if (!family || !session || session.status === "cancelled" || isCareCompleted) return;
 
     const now = new Date().toISOString();
     setSavingActionId("start-care");
@@ -531,7 +489,7 @@ export default function SessionCareLogPage() {
   }
 
   async function endCare() {
-    if (!family || !session || session.status !== "active") return;
+    if (!family || !session || !isCareActive) return;
 
     const now = new Date().toISOString();
     setSavingActionId("end-care");
@@ -568,6 +526,10 @@ export default function SessionCareLogPage() {
 
   async function completePlannedAction(action: PlannedAction) {
     if (!family || !session || !dependent) return;
+    if (!isCareActive) {
+      showCareLockedMessage("Start care to complete planned actions.");
+      return;
+    }
 
     const existingEvent = plannedEventsByActionId[action.id];
     const now = new Date().toISOString();
@@ -622,6 +584,10 @@ export default function SessionCareLogPage() {
 
   async function completeAddedEvent(event: CareEvent) {
     if (!family) return;
+    if (!isCareActive) {
+      showCareLockedMessage("Start care to complete extra actions.");
+      return;
+    }
 
     const now = new Date().toISOString();
     setSavingActionId(`added-${event.id}`);
@@ -664,6 +630,10 @@ export default function SessionCareLogPage() {
     event.preventDefault();
 
     if (!family || !session || !dependent) return;
+    if (!isCareActive) {
+      showCareLockedMessage("Start care to add extra actions.");
+      return;
+    }
 
     const label = addedForm.label.trim();
     const notes = addedForm.notes.trim();
@@ -716,6 +686,10 @@ export default function SessionCareLogPage() {
     event.preventDefault();
 
     if (!family || !session || !dependent) return;
+    if (!isCareActive) {
+      showCareLockedMessage("Start care to add care notes.");
+      return;
+    }
 
     const notes = careNote.trim();
     if (!notes) {
@@ -763,6 +737,11 @@ export default function SessionCareLogPage() {
 
   async function addCarePhoto(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!isCareActive) {
+      showCareLockedMessage("Start care to add photos.");
+      return;
+    }
 
     if (!family || !session || !dependent || !photoFile) {
       setMessage("Please choose a photo first.");
@@ -834,6 +813,10 @@ export default function SessionCareLogPage() {
 
   async function deletePhotoEvent(event: CareEvent) {
     if (!family || event.event_type !== "photo") return;
+    if (!isCareActive) {
+      showCareLockedMessage("Start care to manage photos.");
+      return;
+    }
 
     const confirmed = window.confirm("Remove this photo from Care Log?");
     if (!confirmed) return;
@@ -1068,7 +1051,7 @@ export default function SessionCareLogPage() {
                 </p>
               </div>
               <div className="sm:col-span-2">
-                {session.status === "scheduled" && (
+                {!session.actual_started_at && session.status !== "cancelled" && !isCareCompleted && (
                   <button
                     onClick={startCare}
                     disabled={Boolean(savingActionId)}
@@ -1077,16 +1060,16 @@ export default function SessionCareLogPage() {
                     {savingActionId === "start-care" ? "Starting..." : "Start Care"}
                   </button>
                 )}
-                {session.status === "active" && (
+                {isCareActive && (
                   <button
                     onClick={endCare}
-                    disabled={Boolean(savingActionId)}
+                    disabled={!isCareActive || Boolean(savingActionId)}
                     className="w-full rounded-[22px] border border-red-100 bg-red-50 px-6 py-4 text-sm font-black text-[#EF4444] transition hover:bg-[#EF4444] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                   >
                     {savingActionId === "end-care" ? "Ending..." : "End Care"}
                   </button>
                 )}
-                {session.status === "completed" && (
+                {isCareCompleted && (
                   <div className="rounded-[22px] bg-emerald-50 px-6 py-4 text-center text-sm font-black text-[#16A34A]">
                     Care completed
                   </div>
@@ -1133,6 +1116,11 @@ export default function SessionCareLogPage() {
                     <div>
                       <h2 className="text-2xl font-black text-[#0F172A]">Today&apos;s Plan</h2>
                       <p className="mt-1 text-sm leading-6 text-[#64748B]">Complete planned care as it happens.</p>
+                      {!isCareActive && (
+                        <p className="mt-2 text-sm font-semibold text-[#2563EB]">
+                          {isCareCompleted ? "Care is completed. Planned actions are read-only." : "Start care to complete planned actions."}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1160,7 +1148,7 @@ export default function SessionCareLogPage() {
                                 ) : (
                                   <button
                                     onClick={() => completePlannedAction(action)}
-                                    disabled={Boolean(savingActionId)}
+                                    disabled={!isCareActive || Boolean(savingActionId)}
                                     className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                                   >
                                     {saving ? "Completing..." : "Complete"}
@@ -1182,10 +1170,16 @@ export default function SessionCareLogPage() {
                     <div>
                       <h2 className="text-2xl font-black text-[#0F172A]">Added During Care</h2>
                       <p className="mt-1 text-sm leading-6 text-[#64748B]">Add extra care actions when the day changes.</p>
+                      {!isCareActive && (
+                        <p className="mt-2 text-sm font-semibold text-[#2563EB]">
+                          {isCareCompleted ? "Care is completed. Extra actions are read-only." : "Start care to add extra actions."}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => setShowAddForm((open) => !open)}
-                      className="rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
+                      disabled={!isCareActive}
+                      className="rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                     >
                       {showAddForm ? "Cancel" : "Add Care Action"}
                     </button>
@@ -1199,6 +1193,7 @@ export default function SessionCareLogPage() {
                           <select
                             value={addedForm.event_type}
                             onChange={(event) => changeAddedType(event.target.value as PlannedActionType)}
+                            disabled={!isCareActive}
                             className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                           >
                             {[...plannedActionOptions, { type: "custom" as const, label: "Custom" }].map((option) => (
@@ -1213,6 +1208,7 @@ export default function SessionCareLogPage() {
                           <input
                             value={addedForm.label}
                             onChange={(event) => setAddedForm((current) => ({ ...current, label: event.target.value }))}
+                            disabled={!isCareActive}
                             className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                             required
                           />
@@ -1222,6 +1218,7 @@ export default function SessionCareLogPage() {
                           <textarea
                             value={addedForm.notes}
                             onChange={(event) => setAddedForm((current) => ({ ...current, notes: event.target.value }))}
+                            disabled={!isCareActive}
                             className="mt-2 min-h-24 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                             placeholder="What changed during care?"
                           />
@@ -1229,7 +1226,7 @@ export default function SessionCareLogPage() {
                       </div>
                       <button
                         type="submit"
-                        disabled={Boolean(savingActionId)}
+                        disabled={!isCareActive || Boolean(savingActionId)}
                         className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                       >
                         {savingActionId === "add-care-action" ? "Adding..." : "Add Care Action"}
@@ -1268,7 +1265,7 @@ export default function SessionCareLogPage() {
                                 ) : (
                                   <button
                                     onClick={() => completeAddedEvent(event)}
-                                    disabled={Boolean(savingActionId)}
+                                    disabled={!isCareActive || Boolean(savingActionId)}
                                     className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                                   >
                                     {saving ? "Completing..." : "Complete"}
@@ -1290,13 +1287,25 @@ export default function SessionCareLogPage() {
                     <div>
                       <h2 className="text-2xl font-black text-[#0F172A]">Photos</h2>
                       <p className="mt-1 text-sm leading-6 text-[#64748B]">Share visual moments from today&apos;s care.</p>
+                      {!isCareActive && (
+                        <p className="mt-2 text-sm font-semibold text-[#2563EB]">
+                          {isCareCompleted ? "Care is completed. Photos are read-only." : "Start care to add photos."}
+                        </p>
+                      )}
                     </div>
-                    <label className="cursor-pointer rounded-[20px] bg-blue-50 px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white">
+                    <label
+                      className={`rounded-[20px] px-5 py-3 text-sm font-black transition ${
+                        isCareActive
+                          ? "cursor-pointer bg-blue-50 text-[#2563EB] hover:bg-[#2563EB] hover:text-white"
+                          : "cursor-not-allowed bg-slate-100 text-slate-400"
+                      }`}
+                    >
                       Add Photo
                       <input
                         type="file"
                         accept="image/*"
                         onChange={(event) => setPhotoFile(event.target.files?.[0] || null)}
+                        disabled={!isCareActive}
                         className="hidden"
                       />
                     </label>
@@ -1310,12 +1319,13 @@ export default function SessionCareLogPage() {
                           value={photoCaption}
                           onChange={(event) => setPhotoCaption(event.target.value)}
                           placeholder={photoFile ? photoFile.name : "Choose a photo, then add a caption"}
+                          disabled={!isCareActive}
                           className="mt-2 w-full rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                         />
                       </label>
                       <button
                         type="submit"
-                        disabled={Boolean(savingActionId) || !photoFile}
+                        disabled={!isCareActive || Boolean(savingActionId) || !photoFile}
                         className="rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                       >
                         {savingActionId === "add-care-photo" ? "Adding..." : "Share Photo"}
@@ -1352,7 +1362,7 @@ export default function SessionCareLogPage() {
                           <button
                             type="button"
                             onClick={() => deletePhotoEvent(event)}
-                            disabled={savingActionId === `delete-photo-${event.id}`}
+                            disabled={!isCareActive || savingActionId === `delete-photo-${event.id}`}
                             className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-sm font-black text-[#EF4444] shadow-sm disabled:opacity-60"
                             aria-label="Remove photo"
                           >
@@ -1371,18 +1381,24 @@ export default function SessionCareLogPage() {
                   <div>
                     <h2 className="text-2xl font-black text-[#0F172A]">Care Notes</h2>
                     <p className="mt-1 text-sm leading-6 text-[#64748B]">Add helpful context for the family.</p>
+                    {!isCareActive && (
+                      <p className="mt-2 text-sm font-semibold text-[#2563EB]">
+                        {isCareCompleted ? "Care is completed. Notes are read-only." : "Start care to add care notes."}
+                      </p>
+                    )}
                   </div>
 
                   <form onSubmit={addCareNote} className="mt-6 flex flex-col gap-3 rounded-[30px] border border-blue-100 bg-[#F8FAFC] p-4 sm:flex-row">
                     <textarea
                       value={careNote}
                       onChange={(event) => setCareNote(event.target.value)}
+                      disabled={!isCareActive}
                       className="min-h-12 flex-1 resize-none rounded-[20px] border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
                       placeholder="Add a care note..."
                     />
                     <button
                       type="submit"
-                      disabled={Boolean(savingActionId)}
+                      disabled={!isCareActive || Boolean(savingActionId)}
                       className="rounded-[20px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                     >
                       {savingActionId === "add-care-note" ? "Adding..." : "Send"}
@@ -1543,47 +1559,6 @@ export default function SessionCareLogPage() {
               </div>
             </section>
 
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-              <h2 className="text-2xl font-black text-[#0F172A]">What Actually Happened</h2>
-              {whatHappenedItems.length === 0 ? (
-                <div className="mt-5 rounded-[24px] border border-dashed border-blue-200 bg-blue-50/40 p-5">
-                  <p className="font-semibold text-[#0F172A]">No care activity yet</p>
-                  <p className="mt-2 text-sm leading-6 text-[#64748B]">Start care or complete an activity to begin the Care Story.</p>
-                </div>
-              ) : (
-                <div className="mt-5 space-y-4">
-                  {whatHappenedItems.map((item) => (
-                    <article key={item.id} className="grid grid-cols-[72px_14px_1fr] items-start gap-3 rounded-2xl p-1 transition duration-300 hover:bg-[#F8FAFC]">
-                      <span className="text-xs font-semibold text-[#64748B]">{formatCompletedTime(item.time)}</span>
-                      <span
-                        className={`mt-1.5 h-3 w-3 rounded-full ${
-                          item.type === "start" || item.type === "meal"
-                            ? "bg-[#22C55E]"
-                            : item.type === "end"
-                              ? "bg-[#64748B]"
-                              : item.type === "photo"
-                                ? "bg-[#F59E0B]"
-                                : "bg-[#2563EB]"
-                        }`}
-                      />
-                      {item.type === "photo" ? (
-                        <button
-                          type="button"
-                          onClick={() => openPhotoFromEvent(item.id)}
-                          className="text-left text-sm font-semibold text-[#334155] transition hover:text-[#2563EB]"
-                        >
-                          {item.label}
-                        </button>
-                      ) : (
-                        <p className={`text-sm font-semibold ${item.type === "meal" ? "text-[#16A34A]" : "text-[#334155]"}`}>
-                          {item.label}
-                        </p>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
           </aside>
         </section>
       </section>
