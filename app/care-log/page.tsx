@@ -41,6 +41,7 @@ type CareSession = {
   status: SessionStatus;
   starts_at: string | null;
   ends_at: string | null;
+  actual_ended_at: string | null;
   planned_actions: PlannedAction[];
   created_at: string;
 };
@@ -303,7 +304,7 @@ export default function CareLogOverviewPage() {
     const { start, end } = getVisibleMonthRange(visibleMonth);
     const { data: sessionsData } = await supabase
       .from("care_sessions")
-      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, planned_actions, created_at")
+      .select("id, family_id, dependent_id, title, care_type, caregiver_name, status, starts_at, ends_at, actual_ended_at, planned_actions, created_at")
       .eq("family_id", familyData.id)
       .gte("starts_at", start.toISOString())
       .lt("starts_at", end.toISOString())
@@ -521,7 +522,7 @@ export default function CareLogOverviewPage() {
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-3xl font-black text-[#0F172A]">Next Sessions</h2>
+              <h2 className="text-3xl font-black text-[#0F172A]">Sessions</h2>
               <p className="mt-1 text-sm font-semibold text-[#64748B]">
                 {new Intl.DateTimeFormat("en", { weekday: "long", month: "long", day: "numeric" }).format(selectedDate)}
               </p>
@@ -561,6 +562,7 @@ export default function CareLogOverviewPage() {
                 const addedCount = sessionEvents.filter((event) => event.source === "added").length;
                 const totalCareActions = plannedActions.length + addedCount;
                 const completedCareActions = sessionEvents.filter((event) => event.completed_at).length;
+                const canViewCareStory = session.status === "completed" || Boolean(session.actual_ended_at);
 
                 return (
                   <article
@@ -595,9 +597,25 @@ export default function CareLogOverviewPage() {
                             <p className="mt-1 text-sm font-semibold text-[#0F172A]">{session.title || "Care Session"}</p>
                           </div>
 
-                          <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusStyle.badgeClass}`}>
-                            <span className={`h-2 w-2 rounded-full ${statusStyle.dotClass}`} />
-                            {statusStyle.label}
+                          <div className="flex flex-wrap items-center gap-2">
+                            {canViewCareStory && (
+                              <button
+                                onClick={() => router.push(`/story/${session.id}`)}
+                                className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-black text-[#2563EB] transition hover:bg-blue-50"
+                              >
+                                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" />
+                                  <path d="M4 5.5A2.5 2.5 0 0 1 6.5 8H20" />
+                                  <path d="M8 12h8" />
+                                  <path d="M8 15h6" />
+                                </svg>
+                                View Care Story
+                              </button>
+                            )}
+                            <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusStyle.badgeClass}`}>
+                              <span className={`h-2 w-2 rounded-full ${statusStyle.dotClass}`} />
+                              {statusStyle.label}
+                            </div>
                           </div>
                         </div>
 
