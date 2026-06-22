@@ -361,7 +361,6 @@ export default function SchedulePage() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [createFormTouched, setCreateFormTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
@@ -471,12 +470,10 @@ export default function SchedulePage() {
   }
 
   function updateForm(field: keyof SessionForm, value: string) {
-    setCreateFormTouched(true);
     setForm((current) => ({ ...current, [field]: value }));
   }
 
   function updateStartDateTime(value: string) {
-    setCreateFormTouched(true);
     setForm((current) => ({
       ...current,
       starts_at: value,
@@ -485,7 +482,6 @@ export default function SchedulePage() {
   }
 
   function updateEndDateTime(value: string) {
-    setCreateFormTouched(true);
     if (isEndBeforeOrEqualStart(form.starts_at, value)) {
       setForm((current) => ({
         ...current,
@@ -500,7 +496,6 @@ export default function SchedulePage() {
   }
 
   function togglePlannedAction(type: PlannedActionType) {
-    setCreateFormTouched(true);
     setForm((current) => {
       const isSelected = current.planned_action_types.includes(type);
       return {
@@ -516,7 +511,6 @@ export default function SchedulePage() {
     setForm(getDefaultForm(form.dependent_id || dependents[0]?.id || "", selectedDate));
     setMessage(null);
     setMessageType(null);
-    setCreateFormTouched(false);
     setShowDiscardConfirm(false);
     setShowCreateForm(true);
   }
@@ -525,17 +519,11 @@ export default function SchedulePage() {
     setForm(getDefaultForm(dependents[0]?.id || "", selectedDate));
     setMessage(null);
     setMessageType(null);
-    setCreateFormTouched(false);
     setShowDiscardConfirm(false);
     setShowCreateForm(false);
   }
 
   function requestCancelCreateForm() {
-    if (!createFormTouched) {
-      resetCreateForm();
-      return;
-    }
-
     setShowDiscardConfirm(true);
   }
 
@@ -546,7 +534,6 @@ export default function SchedulePage() {
     setSelectedDate(startOfLocalDay(nextMonth));
     setShowCreateForm(false);
     setShowDiscardConfirm(false);
-    setCreateFormTouched(false);
     setMessage(null);
     setMessageType(null);
   }
@@ -602,7 +589,6 @@ export default function SchedulePage() {
     setMessage("Session created. Care Plan is updated.");
     setMessageType("success");
     setForm(getDefaultForm(form.dependent_id, selectedDate));
-    setCreateFormTouched(false);
     setShowDiscardConfirm(false);
     setShowCreateForm(false);
     await loadSchedule();
@@ -687,9 +673,6 @@ export default function SchedulePage() {
                 </button>
                 <p className="text-sm font-semibold text-[#64748B]">Schedule</p>
                 <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care Plan</h1>
-                <p className="mt-3 max-w-xl text-base leading-7 text-[#64748B]">
-                  Plan the care that keeps your family feeling safe and connected.
-                </p>
               </div>
 
               <button
@@ -816,9 +799,6 @@ export default function SchedulePage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-xl font-black text-[#0F172A]">Create Session</h3>
-                    <p className="mt-1 text-sm leading-6 text-[#64748B]">
-                      Plan who is cared for, who is caring, and when the session happens.
-                    </p>
                   </div>
                 </div>
 
@@ -906,7 +886,6 @@ export default function SchedulePage() {
                   </div>
 
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Custom instruction optional</span>
                     <span className="mt-3 inline-flex">
                       <PlannedActionBadge type="custom" label="Custom care instruction" selected={Boolean(form.custom_instruction.trim())} />
                     </span>
