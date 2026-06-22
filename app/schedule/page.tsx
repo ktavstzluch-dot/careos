@@ -360,6 +360,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
@@ -510,7 +511,20 @@ export default function SchedulePage() {
     setForm(getDefaultForm(form.dependent_id || dependents[0]?.id || "", selectedDate));
     setMessage(null);
     setMessageType(null);
+    setShowDiscardConfirm(false);
     setShowCreateForm(true);
+  }
+
+  function resetCreateForm() {
+    setForm(getDefaultForm(dependents[0]?.id || "", selectedDate));
+    setMessage(null);
+    setMessageType(null);
+    setShowDiscardConfirm(false);
+    setShowCreateForm(false);
+  }
+
+  function requestCancelCreateForm() {
+    setShowDiscardConfirm(true);
   }
 
   function changeMonth(direction: -1 | 1) {
@@ -519,6 +533,7 @@ export default function SchedulePage() {
     setVisibleMonth(nextMonth);
     setSelectedDate(startOfLocalDay(nextMonth));
     setShowCreateForm(false);
+    setShowDiscardConfirm(false);
     setMessage(null);
     setMessageType(null);
   }
@@ -574,6 +589,7 @@ export default function SchedulePage() {
     setMessage("Session created. Care Plan is updated.");
     setMessageType("success");
     setForm(getDefaultForm(form.dependent_id, selectedDate));
+    setShowDiscardConfirm(false);
     setShowCreateForm(false);
     await loadSchedule();
   }
@@ -657,9 +673,6 @@ export default function SchedulePage() {
                 </button>
                 <p className="text-sm font-semibold text-[#64748B]">Schedule</p>
                 <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care Plan</h1>
-                <p className="mt-3 max-w-xl text-base leading-7 text-[#64748B]">
-                  Plan the care that keeps your family feeling safe and connected.
-                </p>
               </div>
 
               <button
@@ -786,17 +799,7 @@ export default function SchedulePage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-xl font-black text-[#0F172A]">Create Session</h3>
-                    <p className="mt-1 text-sm leading-6 text-[#64748B]">
-                      Plan who is cared for, who is caring, and when the session happens.
-                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateForm(false)}
-                    className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#64748B] transition hover:text-[#2563EB]"
-                  >
-                    Cancel
-                  </button>
                 </div>
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -883,7 +886,6 @@ export default function SchedulePage() {
                   </div>
 
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Custom instruction optional</span>
                     <span className="mt-3 inline-flex">
                       <PlannedActionBadge type="custom" label="Custom care instruction" selected={Boolean(form.custom_instruction.trim())} />
                     </span>
@@ -896,7 +898,6 @@ export default function SchedulePage() {
                   </label>
 
                   <label className="block sm:col-span-2">
-                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#64748B]">Notes optional</span>
                     <textarea
                       value={form.notes}
                       onChange={(event) => updateForm("notes", event.target.value)}
@@ -906,14 +907,51 @@ export default function SchedulePage() {
                   </label>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="mt-5 rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                >
-                  {saving ? "Creating..." : "Create Session"}
-                </button>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={requestCancelCreateForm}
+                    disabled={saving}
+                    className="rounded-[22px] border border-slate-200 bg-white px-6 py-3 text-sm font-black text-[#64748B] transition hover:border-blue-100 hover:bg-blue-50 hover:text-[#2563EB] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-[22px] bg-[#2563EB] px-6 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  >
+                    {saving ? "Creating..." : "Create Session"}
+                  </button>
+                </div>
               </form>
+            )}
+
+            {showDiscardConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/30 px-5 backdrop-blur-sm">
+                <div className="w-full max-w-md rounded-[32px] border border-blue-100 bg-white p-6 shadow-2xl shadow-slate-900/15">
+                  <h3 className="text-2xl font-black text-[#0F172A]">Discard session?</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#64748B]">
+                    Your session has not been created yet. Are you sure you want to leave this form?
+                  </p>
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscardConfirm(false)}
+                      className="rounded-[20px] border border-blue-100 bg-white px-5 py-3 text-sm font-black text-[#2563EB] transition hover:bg-blue-50"
+                    >
+                      Keep Editing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetCreateForm}
+                      className="rounded-[20px] border border-red-100 bg-red-50 px-5 py-3 text-sm font-black text-[#EF4444] transition hover:bg-red-100"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
 
             {visibleSessions.length === 0 ? (
