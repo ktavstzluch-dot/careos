@@ -362,7 +362,7 @@ export default function DependentProfilePage() {
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const config = dependent ? typeConfig[dependent.type] : null;
-  const canEditProfile = dependent?.type === "child" || dependent?.type === "pet";
+  const canEditProfile = Boolean(dependent);
   const profilePhotoSrc = profilePhotoPreview || dependent?.photo_url || "";
 
   const age = useMemo(() => {
