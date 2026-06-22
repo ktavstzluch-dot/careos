@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getProfileFromUser } from "@/lib/profile";
+import { PlannedActionIcon, type PlannedActionType } from "@/lib/plannedActions";
 
 type DependentType = "child" | "pet" | "elder";
 type CareEventSource = "planned" | "added";
@@ -172,6 +173,15 @@ function formatTimeRange(startValue: string | null, endValue: string | null) {
   return `${formatter.format(new Date(startValue))} - ${formatter.format(new Date(endValue))}`;
 }
 
+function formatEventTime(value: string | null) {
+  if (!value) return "Time shared";
+
+  return new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 function getDurationMinutes(startValue: string | null, endValue: string | null) {
   if (!startValue || !endValue) return 0;
 
@@ -181,6 +191,39 @@ function getDurationMinutes(startValue: string | null, endValue: string | null) 
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return 0;
 
   return Math.round((end - start) / 60000);
+}
+
+function formatDurationShort(totalMinutes: number) {
+  if (totalMinutes <= 0) return "Time to be confirmed";
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+function formatDurationSentence(totalMinutes: number) {
+  if (totalMinutes <= 0) return "Care time is still being confirmed";
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const parts: string[] = [];
+
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
+  if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+
+  return parts.join(" and ");
+}
+
+function pluralize(count: number, singular: string, plural: string) {
+  return count === 1 ? singular : plural;
+}
+
+function toPlannedActionIconType(type: CareEventType): PlannedActionType {
+  if (type === "note" || type === "photo") return "custom";
+  return type;
 }
 
 export default function CareStoryPlaceholderPage() {
@@ -196,6 +239,7 @@ export default function CareStoryPlaceholderPage() {
   const [dependent, setDependent] = useState<Dependent | null>(null);
   const [events, setEvents] = useState<CareEvent[]>([]);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -310,6 +354,13 @@ export default function CareStoryPlaceholderPage() {
   const photoCount = storyData?.photos.length || 0;
   const noteCount = storyData?.notes.length || 0;
   const durationMinutes = storyData?.durationMinutes || 0;
+  const completedActions = storyData?.completedActions || [];
+  const storyPhotos = storyData?.photos || [];
+  const storyNotes = storyData?.notes || [];
+  const storyCaregiver = storyData?.caregiver || "Caregiver";
+  const durationShort = formatDurationShort(durationMinutes);
+  const durationSentence = formatDurationSentence(durationMinutes);
+  const completedStatus = session?.status === "completed" || Boolean(session?.actual_ended_at);
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-24 text-[#0F172A]">
@@ -402,93 +453,211 @@ export default function CareStoryPlaceholderPage() {
           </section>
         ) : (
           <>
-            <section className="mt-8 rounded-[36px] border border-blue-100 bg-white p-6 shadow-sm lg:p-8">
-              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-5">
-                  {dependent.photo_url ? (
-                    <img src={dependent.photo_url} alt={dependent.name} className="h-24 w-24 rounded-[30px] object-cover" />
-                  ) : (
-                    <div
-                      className={`flex h-24 w-24 shrink-0 items-center justify-center rounded-[30px] text-3xl font-black ${
-                        typeStyle?.avatarClass || "bg-blue-50 text-[#2563EB]"
-                      }`}
-                    >
-                      {dependentInitial}
-                    </div>
-                  )}
+            <section className="mt-8 overflow-hidden rounded-[40px] border border-blue-100 bg-white shadow-sm">
+              <div className="bg-gradient-to-br from-blue-50 via-white to-emerald-50 p-6 lg:p-10">
+                <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                    {dependent.photo_url ? (
+                      <img src={dependent.photo_url} alt={dependent.name} className="h-28 w-28 rounded-[34px] object-cover ring-4 ring-white" />
+                    ) : (
+                      <div
+                        className={`flex h-28 w-28 shrink-0 items-center justify-center rounded-[34px] text-4xl font-black ring-4 ring-white ${
+                          typeStyle?.avatarClass || "bg-blue-50 text-[#2563EB]"
+                        }`}
+                      >
+                        {dependentInitial}
+                      </div>
+                    )}
 
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-4xl font-black leading-tight text-[#0F172A]">{dependent.name}</h1>
-                      {typeStyle && (
-                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${typeStyle.badgeClass}`}>
-                          <DependentTypeIcon type={dependent.type} />
-                          {typeStyle.label}
-                        </span>
-                      )}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="text-4xl font-black leading-tight text-[#0F172A] lg:text-5xl">Care Story</h1>
+                        {completedStatus && (
+                          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-[#16A34A]">
+                            <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
+                            Completed
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-base font-semibold text-[#64748B]">A calm summary of today&apos;s care.</p>
+                      <div className="mt-5 flex flex-wrap items-center gap-3">
+                        <span className="text-2xl font-black text-[#0F172A]">{dependent.name}</span>
+                        {typeStyle && (
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${typeStyle.badgeClass}`}>
+                            <DependentTypeIcon type={dependent.type} />
+                            {typeStyle.label}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-bold text-[#0F172A]">{session.title || "Care Session"}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#64748B]">Care by {storyCaregiver}</p>
                     </div>
-                    <p className="mt-2 text-lg font-bold text-[#0F172A]">{session.title || "Care Session"}</p>
-                    <p className="mt-1 text-sm font-semibold text-[#64748B]">
-                      Care by {session.caregiver_name || "Caregiver"}
-                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
+                    <div className="rounded-[24px] bg-white/80 p-4 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#64748B]">Session date</p>
+                      <p className="mt-2 text-sm font-black text-[#0F172A]">{formatDate(session.starts_at)}</p>
+                    </div>
+                    <div className="rounded-[24px] bg-white/80 p-4 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#64748B]">Care Duration</p>
+                      <p className="mt-2 text-sm font-black text-[#0F172A]">{durationShort}</p>
+                    </div>
+                    <div className="rounded-[24px] bg-white/80 p-4 shadow-sm sm:col-span-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#64748B]">Scheduled care time</p>
+                      <p className="mt-2 text-sm font-black text-[#0F172A]">{formatTimeRange(session.starts_at, session.ends_at)}</p>
+                      {family?.name && <p className="mt-1 text-xs font-semibold text-[#64748B]">{family.name}</p>}
+                    </div>
                   </div>
                 </div>
-
-                <div className="rounded-[28px] bg-[#F8FAFC] p-5 md:min-w-[260px]">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#64748B]">Session date</p>
-                  <p className="mt-2 text-sm font-black text-[#0F172A]">{formatDate(session.starts_at)}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#64748B]">{formatTimeRange(session.starts_at, session.ends_at)}</p>
-                  {family?.name && (
-                    <p className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-bold text-[#64748B]">
-                      {family.name}
-                    </p>
-                  )}
-                </div>
               </div>
             </section>
 
-            <section className="mt-8 rounded-[36px] border border-blue-100 bg-white p-10 text-center shadow-sm lg:p-14">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[24px] bg-blue-50 text-[#2563EB]">
-                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z" />
-                  <path d="M4 5.5A2.5 2.5 0 0 1 6.5 8H20" />
-                  <path d="M8 12h8" />
-                  <path d="M8 15h6" />
-                </svg>
+            <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
+                <p className="text-3xl font-black text-[#0F172A]">{durationShort}</p>
+                <p className="mt-1 text-sm font-semibold text-[#64748B]">Care Duration</p>
               </div>
-              <h2 className="mt-6 text-4xl font-black text-[#0F172A]">Care Story</h2>
-              <p className="mx-auto mt-3 max-w-xl text-base font-semibold text-[#64748B]">
-                A beautiful summary of today&apos;s care is being prepared.
-              </p>
-              <p className="mt-6 rounded-[24px] bg-emerald-50 px-5 py-4 text-sm font-black text-[#16A34A]">
-                Care Story is coming soon.
-              </p>
+              <div className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
+                <p className="text-3xl font-black text-[#0F172A]">{completedActionsCount}</p>
+                <p className="mt-1 text-sm font-semibold text-[#64748B]">Completed Actions</p>
+              </div>
+              <div className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
+                <p className="text-3xl font-black text-[#0F172A]">{photoCount}</p>
+                <p className="mt-1 text-sm font-semibold text-[#64748B]">Photos Shared</p>
+              </div>
+              <div className="rounded-[28px] border border-blue-100 bg-white p-5 shadow-sm">
+                <p className="text-3xl font-black text-[#0F172A]">{noteCount}</p>
+                <p className="mt-1 text-sm font-semibold text-[#64748B]">Notes Added</p>
+              </div>
             </section>
 
-            <section className="mt-8 rounded-[32px] border border-blue-100 bg-white p-6 shadow-sm">
-              <h3 className="text-2xl font-black text-[#0F172A]">Story Data Ready</h3>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Completed Actions</p>
-                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{completedActionsCount}</p>
-                </div>
-                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Photos</p>
-                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{photoCount}</p>
-                </div>
-                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Notes</p>
-                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{noteCount}</p>
-                </div>
-                <div className="rounded-[24px] bg-[#F8FAFC] p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#64748B]">Duration</p>
-                  <p className="mt-2 text-3xl font-black text-[#0F172A]">{durationMinutes} minutes</p>
-                </div>
+            <section className="mt-8 rounded-[36px] border border-blue-100 bg-white p-7 shadow-sm lg:p-9">
+              <p className="text-sm font-black uppercase tracking-[0.16em] text-[#2563EB]">How did care go today?</p>
+              <div className="mt-5 space-y-4 text-lg font-semibold leading-8 text-[#334155]">
+                <p>
+                  <span className="font-black text-[#0F172A]">{dependent.name}</span> was cared for by{" "}
+                  <span className="font-black text-[#0F172A]">{storyCaregiver}</span> today.
+                </p>
+                <p>
+                  Care lasted {durationSentence}. During the session, {completedActionsCount}{" "}
+                  {pluralize(completedActionsCount, "care action was", "care actions were")} completed, {photoCount}{" "}
+                  {pluralize(photoCount, "photo was", "photos were")} shared, and {noteCount}{" "}
+                  {pluralize(noteCount, "care note was", "care notes were")} added.
+                </p>
+                {photoCount === 0 && <p>No photos were shared during this session.</p>}
+                {noteCount === 0 && <p>No care notes were added during this session.</p>}
               </div>
+            </section>
+
+            <section className="mt-8 rounded-[36px] border border-blue-100 bg-white p-7 shadow-sm lg:p-9">
+              <h2 className="text-3xl font-black text-[#0F172A]">Completed Care</h2>
+              {completedActions.length === 0 ? (
+                <div className="mt-5 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                  <p className="font-semibold text-[#0F172A]">No care actions were completed.</p>
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {completedActions.map((action) => (
+                    <article key={action.id} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-5">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-violet-50 text-[#7C3AED]">
+                          <PlannedActionIcon type={toPlannedActionIconType(action.event_type)} />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-lg font-black text-[#0F172A]">{action.label}</h3>
+                          <p className="mt-1 text-sm font-semibold text-[#16A34A]">
+                            Completed {formatEventTime(action.completed_at || action.created_at)}
+                          </p>
+                          {action.notes && <p className="mt-3 text-sm leading-6 text-[#64748B]">{action.notes}</p>}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="mt-8 rounded-[36px] border border-blue-100 bg-white p-7 shadow-sm lg:p-9">
+              <h2 className="text-3xl font-black text-[#0F172A]">Photo Memories</h2>
+              {storyPhotos.length === 0 ? (
+                <div className="mt-5 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                  <p className="font-semibold text-[#0F172A]">No photos were shared during this care session.</p>
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {storyPhotos.map((photo, index) => (
+                    <button
+                      key={`${photo.url}-${photo.created_at}`}
+                      onClick={() => setPhotoViewerIndex(index)}
+                      className="group relative overflow-hidden rounded-[28px] border border-blue-100 bg-[#F8FAFC] text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-100/50"
+                    >
+                      <img src={photo.url} alt="Care memory" className="h-56 w-full object-cover transition group-hover:scale-105" />
+                      <span className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-[#0F172A] shadow-sm">
+                        {formatEventTime(photo.created_at)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="mt-8 rounded-[36px] border border-blue-100 bg-white p-7 shadow-sm lg:p-9">
+              <h2 className="text-3xl font-black text-[#0F172A]">Care Notes</h2>
+              {storyNotes.length === 0 ? (
+                <div className="mt-5 rounded-[28px] border border-dashed border-blue-200 bg-blue-50/40 p-8 text-center">
+                  <p className="font-semibold text-[#0F172A]">No care notes were added.</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  {storyNotes.map((note) => (
+                    <article key={`${note.created_at}-${note.text}`} className="rounded-[28px] border border-blue-100 bg-[#F8FAFC] p-5">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#2563EB] to-[#22C55E] text-sm font-black text-white">
+                          {storyCaregiver.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-black text-[#0F172A]">{storyCaregiver}</p>
+                            <p className="text-xs font-semibold text-[#64748B]">{formatEventTime(note.created_at)}</p>
+                          </div>
+                          <p className="mt-2 text-sm leading-6 text-[#334155]">{note.text}</p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="mt-8 rounded-[36px] border border-emerald-100 bg-emerald-50/80 p-8 text-center shadow-sm">
+              <h2 className="text-3xl font-black text-[#0F172A]">Everything is under control.</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#64748B]">
+                This Care Story was built from the care actions, notes, and photos shared during the session.
+              </p>
             </section>
           </>
         )}
       </section>
+
+      {photoViewerIndex !== null && storyPhotos[photoViewerIndex] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F172A]/80 p-4 backdrop-blur-sm">
+          <div className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-[32px] bg-white shadow-2xl">
+            <button
+              onClick={() => setPhotoViewerIndex(null)}
+              className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-xl font-black text-[#0F172A] shadow-sm transition hover:bg-blue-50"
+              aria-label="Close photo"
+            >
+              x
+            </button>
+            <img src={storyPhotos[photoViewerIndex].url} alt="Care memory" className="max-h-[80vh] w-full object-contain bg-[#0F172A]" />
+            <div className="flex items-center justify-between gap-3 px-5 py-4">
+              <p className="text-sm font-bold text-[#0F172A]">Photo Memories</p>
+              <p className="text-sm font-semibold text-[#64748B]">{formatEventTime(storyPhotos[photoViewerIndex].created_at)}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <nav className="fixed bottom-0 left-0 right-0 z-30 border-t border-blue-100 bg-white/95 px-4 py-3 backdrop-blur-xl md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
