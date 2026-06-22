@@ -226,6 +226,47 @@ function toPlannedActionIconType(type: CareEventType): PlannedActionType {
   return type;
 }
 
+function buildAiDailyStory({
+  dependentName,
+  caregiver,
+  durationSentence,
+  completedActionsCount,
+  photoCount,
+  noteCount,
+  completedActions,
+}: {
+  dependentName: string;
+  caregiver: string;
+  durationSentence: string;
+  completedActionsCount: number;
+  photoCount: number;
+  noteCount: number;
+  completedActions: CareEvent[];
+}) {
+  const actionLabels = completedActions
+    .map((action) => action.label.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  const actionDetail =
+    actionLabels.length > 0
+      ? ` Care included ${actionLabels.join(", ")}${completedActionsCount > actionLabels.length ? ", and more" : ""}.`
+      : "";
+  const photoDetail =
+    photoCount > 0
+      ? `${photoCount} ${pluralize(photoCount, "photo was", "photos were")} shared`
+      : "No photos were shared";
+  const noteDetail =
+    noteCount > 0
+      ? `${noteCount} ${pluralize(noteCount, "note helped", "notes helped")} keep the family connected`
+      : "no care notes were added";
+
+  return `${dependentName} had a calm and caring session with ${caregiver} today. Care lasted ${durationSentence}. During care, ${completedActionsCount} ${pluralize(
+    completedActionsCount,
+    "action was",
+    "actions were",
+  )} completed.${actionDetail} ${photoDetail}, and ${noteDetail}. Everything is under control.`;
+}
+
 export default function CareStoryPlaceholderPage() {
   const router = useRouter();
   const params = useParams();
@@ -240,6 +281,7 @@ export default function CareStoryPlaceholderPage() {
   const [events, setEvents] = useState<CareEvent[]>([]);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState<number | null>(null);
+  const [aiDailyStory, setAiDailyStory] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -361,6 +403,21 @@ export default function CareStoryPlaceholderPage() {
   const durationShort = formatDurationShort(durationMinutes);
   const durationSentence = formatDurationSentence(durationMinutes);
   const completedStatus = session?.status === "completed" || Boolean(session?.actual_ended_at);
+  const handleGenerateAiDailyStory = () => {
+    if (!dependent) return;
+
+    setAiDailyStory(
+      buildAiDailyStory({
+        dependentName: dependent.name,
+        caregiver: storyCaregiver,
+        durationSentence,
+        completedActionsCount,
+        photoCount,
+        noteCount,
+        completedActions,
+      }),
+    );
+  };
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-24 text-[#0F172A]">
@@ -547,6 +604,37 @@ export default function CareStoryPlaceholderPage() {
                 </p>
                 {photoCount === 0 && <p>No photos were shared during this session.</p>}
                 {noteCount === 0 && <p>No care notes were added during this session.</p>}
+              </div>
+            </section>
+
+            <section className="mt-8 overflow-hidden rounded-[36px] border border-blue-100 bg-white shadow-sm">
+              <div className="bg-gradient-to-br from-blue-50 via-white to-emerald-50 p-7 lg:p-9">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-3xl font-black text-[#0F172A]">AI Daily Story</h2>
+                    <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#64748B]">
+                      Create a warm parent-facing story from this Care Story.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleGenerateAiDailyStory}
+                    className="rounded-[22px] bg-[#2563EB] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8]"
+                  >
+                    Generate AI Daily Story
+                  </button>
+                </div>
+
+                {aiDailyStory ? (
+                  <div className="mt-6 rounded-[30px] border border-blue-100 bg-white/90 p-6 shadow-sm">
+                    <p className="text-lg font-semibold leading-8 text-[#334155]">{aiDailyStory}</p>
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-[30px] border border-dashed border-blue-200 bg-white/70 p-6">
+                    <p className="text-sm font-semibold leading-6 text-[#64748B]">
+                      Your AI Daily Story will appear here when you generate it.
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
 
