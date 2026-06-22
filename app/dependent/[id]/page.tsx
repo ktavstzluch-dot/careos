@@ -258,18 +258,6 @@ function getAge(dateOfBirth: string | null) {
   return age;
 }
 
-function formatTime(value: string | null) {
-  if (!value) return "Today";
-  return new Intl.DateTimeFormat("en", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function getLogTitle(log: CareLog) {
-  return log.title || logTypes.find((item) => item.type === log.type)?.label || "Care note";
-}
-
 export default function DependentProfilePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -369,91 +357,6 @@ export default function DependentProfilePage() {
     if (!dependent) return null;
     return getAge(dependent.date_of_birth);
   }, [dependent]);
-
-  const recentLogs = useMemo(() => {
-    if (careLogs.length > 0) return careLogs;
-
-    if (!dependent) return [];
-
-    if (dependent.type === "pet") {
-      return [
-        {
-          id: "sample-walk",
-          family_id: dependent.family_id,
-          dependent_id: dependent.id,
-          child_id: null,
-          type: "walk",
-          title: "Walk completed",
-          note: "Walked for 35 minutes. Pee and poop completed.",
-          value: null,
-          created_at: null,
-        },
-        {
-          id: "sample-meal",
-          family_id: dependent.family_id,
-          dependent_id: dependent.id,
-          child_id: null,
-          type: "meal",
-          title: "Food & water",
-          note: "Ate dinner and drank water.",
-          value: null,
-          created_at: null,
-        },
-      ];
-    }
-
-    if (dependent.type === "elder") {
-      return [
-        {
-          id: "sample-medicine",
-          family_id: dependent.family_id,
-          dependent_id: dependent.id,
-          child_id: null,
-          type: "medicine",
-          title: "Medication check",
-          note: "Evening medication confirmed.",
-          value: null,
-          created_at: null,
-        },
-        {
-          id: "sample-note",
-          family_id: dependent.family_id,
-          dependent_id: dependent.id,
-          child_id: null,
-          type: "note",
-          title: "Care note",
-          note: "Caregiver visit completed. Everything looks good.",
-          value: null,
-          created_at: null,
-        },
-      ];
-    }
-
-    return [
-      {
-        id: "sample-meal",
-        family_id: dependent.family_id,
-        dependent_id: dependent.id,
-        child_id: dependent.id,
-        type: "meal",
-        title: "Lunch",
-        note: "Ate everything.",
-        value: null,
-        created_at: null,
-      },
-      {
-        id: "sample-activity",
-        family_id: dependent.family_id,
-        dependent_id: dependent.id,
-        child_id: dependent.id,
-        type: "activity",
-        title: "Outdoor Play",
-        note: "Played outside and was in a happy mood.",
-        value: null,
-        created_at: null,
-      },
-    ];
-  }, [careLogs, dependent]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -821,38 +724,43 @@ export default function DependentProfilePage() {
               </div>
             </section>
 
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-              <p className="text-sm font-semibold text-[#64748B]">Quick actions</p>
-              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">Care tools</h2>
+            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
+              <h2 className="text-2xl font-black text-[#0F172A]">Care Tools</h2>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button onClick={() => router.push("/schedule")} className="rounded-[24px] bg-[#2563EB] p-5 text-left text-white shadow-lg shadow-blue-200">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => router.push("/schedule")}
+                  className="group rounded-[26px] border border-blue-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl hover:shadow-blue-100/60"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-[#2563EB] transition group-hover:bg-[#2563EB] group-hover:text-white">
                     <CareLogTypeIcon type="activity" />
                   </div>
-                  <p className="mt-4 text-sm font-bold">Schedule</p>
-                  <p className="mt-1 text-xs text-white/80">Book care</p>
+                  <p className="mt-4 text-sm font-black text-[#0F172A]">Schedule</p>
+                  <p className="mt-1 text-xs leading-5 text-[#64748B]">Plan future care</p>
                 </button>
-                <button onClick={() => router.push("/care-log")} className="rounded-[24px] bg-[#22C55E] p-5 text-left text-white shadow-lg shadow-emerald-100">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20">
+                <button
+                  onClick={() => router.push("/care-log")}
+                  className="group rounded-[26px] border border-emerald-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-100/60"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-[#22C55E] transition group-hover:bg-[#22C55E] group-hover:text-white">
                     <CareLogTypeIcon type="note" />
                   </div>
-                  <p className="mt-4 text-sm font-bold">Care Log</p>
-                  <p className="mt-1 text-xs text-white/80">Add update</p>
+                  <p className="mt-4 text-sm font-black text-[#0F172A]">Care Log</p>
+                  <p className="mt-1 text-xs leading-5 text-[#64748B]">Track care activity</p>
                 </button>
-                <button className="rounded-[24px] border border-blue-100 bg-[#FFFFFF] p-5 text-left">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#2563EB]">
+                <button className="group rounded-[26px] border border-violet-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-xl hover:shadow-violet-100/60">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-700 transition group-hover:bg-violet-600 group-hover:text-white">
                     <CareLogTypeIcon type="photo" />
                   </div>
-                  <p className="mt-4 text-sm font-bold text-[#0F172A]">Photos</p>
-                  <p className="mt-1 text-xs text-[#64748B]">Coming soon</p>
+                  <p className="mt-4 text-sm font-black text-[#0F172A]">Photos</p>
+                  <p className="mt-1 text-xs leading-5 text-[#64748B]">View memories</p>
                 </button>
-                <button className="rounded-[24px] border border-red-100 bg-red-50 p-5 text-left">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#EF4444]">
+                <button className="group rounded-[26px] border border-red-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-red-200 hover:shadow-xl hover:shadow-red-100/60">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-[#EF4444] transition group-hover:bg-[#EF4444] group-hover:text-white">
                     <CareDetailIcon label="Emergency" />
                   </div>
-                  <p className="mt-4 text-sm font-bold text-[#EF4444]">Emergency</p>
-                  <p className="mt-1 text-xs text-[#64748B]">Contacts</p>
+                  <p className="mt-4 text-sm font-black text-[#0F172A]">Emergency</p>
+                  <p className="mt-1 text-xs leading-5 text-[#64748B]">Important contacts</p>
                 </button>
               </div>
             </section>
@@ -888,62 +796,6 @@ export default function DependentProfilePage() {
                   <p className="mt-2 text-sm leading-6 text-[#64748B]">{dependent.notes}</p>
                 </div>
               )}
-            </section>
-
-            <section className="rounded-[36px] border border-blue-100 bg-white p-6 shadow-lg shadow-blue-100/40">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-[#64748B]">Today</p>
-                  <h2 className="mt-1 text-3xl font-black text-[#0F172A]">Today&apos;s Care Story</h2>
-                </div>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-[#22C55E]">
-                  AI summary ready soon
-                </span>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                {recentLogs.map((log) => (
-                  <article key={log.id} className="rounded-[26px] border border-blue-100 bg-[#FFFFFF] p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#2563EB]">
-                        <CareLogTypeIcon type={log.type} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-black text-[#0F172A]">{getLogTitle(log)}</p>
-                          <p className="text-xs font-semibold text-[#64748B]">{formatTime(log.created_at)}</p>
-                        </div>
-                        {log.note && <p className="mt-2 text-sm leading-6 text-[#64748B]">{log.note}</p>}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-[36px] border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-emerald-50 p-6 shadow-lg shadow-blue-100/40">
-              <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-white text-[#2563EB] shadow-sm">
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 3v3" />
-                    <path d="M12 18v3" />
-                    <path d="M4.2 6.2 6.3 8.3" />
-                    <path d="m17.7 15.7 2.1 2.1" />
-                    <path d="M3 12h3" />
-                    <path d="M18 12h3" />
-                    <path d="m4.2 17.8 2.1-2.1" />
-                    <path d="m17.7 8.3 2.1-2.1" />
-                    <path d="M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[#64748B]">AI Summary</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#0F172A]">{dependent.name}&apos;s daily summary</h2>
-                  <p className="mt-3 text-sm leading-6 text-[#64748B]">
-                    CareOS will summarize care updates, Moments, notes and caregiver updates here.
-                  </p>
-                </div>
-              </div>
             </section>
           </div>
         </div>
