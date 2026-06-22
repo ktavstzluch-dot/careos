@@ -970,7 +970,6 @@ export default function SessionCareLogPage() {
         </button>
 
         <div className="mb-6">
-          <p className="text-sm font-semibold text-[#64748B]">Care Log</p>
           <h1 className="mt-1 text-4xl font-black tracking-tight text-[#0F172A]">Care Log</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#64748B]">
             Track what actually happens during this care session.
