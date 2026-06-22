@@ -227,16 +227,6 @@ function formatClockDuration(totalSeconds: number) {
   return [hours, minutes, seconds].map((value) => `${value}`.padStart(2, "0")).join(":");
 }
 
-function formatCareStatusDuration(totalSeconds: number) {
-  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-
-  if (hours === 0) return `${minutes}m`;
-
-  return `${hours}h ${`${minutes}`.padStart(2, "0")}m`;
-}
-
 function getDurationSeconds(startValue: string | null, endValue: string | null) {
   if (!startValue || !endValue) return 0;
   return Math.max(0, Math.floor((new Date(endValue).getTime() - new Date(startValue).getTime()) / 1000));
@@ -452,24 +442,6 @@ export default function SessionCareLogPage() {
   const isCareNotStarted = Boolean(session && !session.actual_started_at);
   const isCareCompleted = Boolean(session && (session.status === "completed" || session.actual_ended_at));
   const isCareCancelled = session?.status === "cancelled";
-  const careStatusMessage = isCareCancelled
-    ? "This care session was cancelled"
-    : isCareCompleted
-      ? "Care completed successfully"
-      : isCareActive
-        ? "Caregiver currently providing care"
-        : "Waiting for caregiver to start care";
-  const careStatusTiming = isCareCancelled
-    ? [{ label: "Status", value: "Cancelled session" }]
-    : isCareCompleted
-      ? [
-          { label: "Started", value: formatCompletedTime(session?.actual_started_at || null) || "Not recorded" },
-          { label: "Ended", value: formatCompletedTime(session?.actual_ended_at || null) || "Not recorded" },
-          { label: "Duration", value: formatCareStatusDuration(actualDurationSeconds) },
-        ]
-      : isCareActive
-        ? [{ label: "Started", value: formatCompletedTime(session?.actual_started_at || null) || "In progress" }]
-        : [{ label: "Scheduled", value: formatTimeRange(session?.starts_at || null, session?.ends_at || null) }];
   const careStatusSteps = isCareCancelled
     ? [
         { label: "Scheduled", state: "done" as const },
@@ -478,8 +450,7 @@ export default function SessionCareLogPage() {
     : [
         { label: "Scheduled", state: "done" as const },
         { label: "Care Started", state: session?.actual_started_at ? ("done" as const) : ("pending" as const) },
-        ...(isCareActive ? [{ label: "In Progress", state: "active" as const }] : []),
-        { label: "Care Completed", state: isCareCompleted ? ("done" as const) : ("pending" as const) },
+        { label: "Care Completed", state: isCareCompleted ? ("done" as const) : isCareActive ? ("active" as const) : ("pending" as const) },
       ];
 
   async function handleLogout() {
@@ -1049,74 +1020,52 @@ export default function SessionCareLogPage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-[36px] border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/45">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[#64748B]">Care Status</p>
-              <h2 className="mt-1 text-2xl font-black text-[#0F172A]">{careStatusMessage}</h2>
+        <section className="mt-6 rounded-[36px] border border-blue-100 bg-white px-5 py-5 shadow-xl shadow-blue-100/45">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-4">
+            {careStatusSteps.map((step, index) => {
+              const isDone = step.state === "done";
+              const isActiveStep = step.state === "active";
+              const isCancelledStep = step.state === "cancelled";
 
-              <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-4">
-                {careStatusSteps.map((step, index) => {
-                  const isDone = step.state === "done";
-                  const isActiveStep = step.state === "active";
-                  const isCancelledStep = step.state === "cancelled";
-
-                  return (
-                    <div key={step.label} className="flex items-center gap-3">
-                      {index > 0 && <span className="hidden h-px w-8 bg-blue-100 sm:block" />}
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-black transition ${
-                            isCancelledStep
-                              ? "border-red-100 bg-red-50 text-[#EF4444]"
-                              : isDone
-                                ? "border-emerald-100 bg-emerald-50 text-[#16A34A]"
-                                : isActiveStep
-                                  ? "border-blue-100 bg-[#2563EB] text-white shadow-lg shadow-blue-100"
-                                  : "border-slate-200 bg-[#F8FAFC] text-[#94A3B8]"
-                          }`}
-                        >
-                          {isCancelledStep ? (
-                            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3">
-                              <path d="M6 6l12 12" />
-                              <path d="M18 6 6 18" />
-                            </svg>
-                          ) : isDone ? (
-                            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3">
-                              <path d="m5 12 4 4L19 6" />
-                            </svg>
-                          ) : (
-                            <span className={`h-2.5 w-2.5 rounded-full ${isActiveStep ? "bg-white" : "bg-slate-300"}`} />
-                          )}
-                        </span>
-                        <span className={`text-sm font-black ${isActiveStep ? "text-[#2563EB]" : isCancelledStep ? "text-[#EF4444]" : "text-[#0F172A]"}`}>
-                          {step.label}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:w-[420px]">
-              <div className="rounded-[24px] bg-[#F8FAFC] p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Caregiver</p>
-                <p className="mt-1 text-sm font-black text-[#0F172A]">{session.caregiver_name || "Caregiver not assigned"}</p>
-                <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">{careStatusMessage}</p>
-              </div>
-              <div className="rounded-[24px] bg-[#F8FAFC] p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#64748B]">Timing</p>
-                <div className="mt-2 space-y-2">
-                  {careStatusTiming.map((item) => (
-                    <div key={item.label} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                      <span className="text-xs font-semibold text-[#64748B]">{item.label}</span>
-                      <span className="text-sm font-black text-[#0F172A]">{item.value}</span>
-                    </div>
-                  ))}
+              return (
+                <div key={step.label} className="flex items-center gap-4">
+                  {index > 0 && (
+                    <span
+                      className={`hidden h-px w-10 sm:block ${
+                        isCancelledStep ? "bg-red-100" : isDone ? "bg-emerald-100" : isActiveStep ? "bg-blue-100" : "bg-slate-200"
+                      }`}
+                    />
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-black transition ${
+                        isCancelledStep
+                          ? "border-red-100 bg-red-50 text-[#EF4444]"
+                          : isDone
+                            ? "border-emerald-100 bg-emerald-50 text-[#16A34A]"
+                            : isActiveStep
+                              ? "border-blue-100 bg-[#2563EB] text-white shadow-lg shadow-blue-100"
+                              : "border-slate-200 bg-white text-[#94A3B8]"
+                      }`}
+                    >
+                      {isCancelledStep ? (
+                        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="M6 6l12 12" />
+                          <path d="M18 6 6 18" />
+                        </svg>
+                      ) : isDone ? (
+                        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3">
+                          <path d="m5 12 4 4L19 6" />
+                        </svg>
+                      ) : (
+                        <span className={`h-2.5 w-2.5 rounded-full ${isActiveStep ? "bg-white" : "bg-slate-300"}`} />
+                      )}
+                    </span>
+                    <span className={`text-sm font-black ${isCancelledStep ? "text-[#EF4444]" : "text-[#0F172A]"}`}>{step.label}</span>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </section>
 
