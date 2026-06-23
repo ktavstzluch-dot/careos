@@ -56,7 +56,7 @@ const logTypes = [
   { type: "note", label: "Note", icon: "📝" },
 ];
 
-const PROFILE_PHOTO_BUCKET = "child-photos";
+const PROFILE_PHOTO_BUCKETS = ["child-photos", "care-photos"];
 
 function splitProfileName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -73,6 +73,35 @@ function splitProfileName(name: string) {
 
 function getDateInputValue(value: string | null) {
   return value ? value.slice(0, 10) : "";
+}
+
+function isMissingBucketError(error: { message?: string }) {
+  const message = error.message?.toLowerCase() || "";
+  return message.includes("bucket not found") || (message.includes("bucket") && message.includes("not found"));
+}
+
+async function uploadDependentPhoto(file: File, storagePath: string) {
+  let lastError: { message?: string } | null = null;
+
+  for (const bucket of PROFILE_PHOTO_BUCKETS) {
+    const { error } = await supabase.storage.from(bucket).upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (!error) {
+      const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(storagePath);
+      return publicUrlData.publicUrl;
+    }
+
+    lastError = error;
+
+    if (!isMissingBucketError(error)) {
+      throw error;
+    }
+  }
+
+  throw new Error(lastError?.message || "Dependent photo bucket was not found.");
 }
 
 const typeConfig: Record<
@@ -99,9 +128,9 @@ const typeConfig: Record<
     summary: "Meals, naps, activities, medicine, photos and caregiver notes.",
     primaryCare: "Nanny visit",
     fields: [
-      { label: "Allergies", value: "No allergies added", icon: "⚕️" },
-      { label: "Routine", value: "Meals, nap and playtime", icon: "🧸" },
-      { label: "Emergency", value: "Emergency instructions pending", icon: "🚨" },
+      { label: "Routine", value: "Routine instructions pending", icon: "🧸" },
+      { label: "Health Notes", value: "Health notes pending", icon: "⚕️" },
+      { label: "Care Plan", value: "Care plan pending", icon: "📋" },
     ],
   },
   pet: {
@@ -116,7 +145,7 @@ const typeConfig: Record<
     fields: [
       { label: "Feeding", value: "Feeding instructions pending", icon: "🥣" },
       { label: "Walking", value: "Walk instructions pending", icon: "🐕" },
-      { label: "Vet", value: "Vet contact pending", icon: "🏥" },
+      { label: "Vet Notes", value: "Vet notes pending", icon: "🏥" },
     ],
   },
   elder: {
@@ -129,12 +158,34 @@ const typeConfig: Record<
     summary: "Medication, care visits, health notes, reminders and daily support.",
     primaryCare: "Care visit",
     fields: [
-      { label: "Medicine", value: "Medication plan pending", icon: "💊" },
+      { label: "Medication", value: "Medication instructions pending", icon: "💊" },
       { label: "Health Notes", value: "Health notes pending", icon: "🩺" },
       { label: "Care Plan", value: "Care plan pending", icon: "📋" },
     ],
   },
 };
+
+function getImportantDetailFields(dependent: Dependent, config: (typeof typeConfig)[DependentType]) {
+  const notes = dependent.notes?.trim();
+
+  return config.fields.map((field) => {
+    if (!notes) return field;
+
+    if (dependent.type === "child" && field.label === "Care Plan") {
+      return { ...field, value: notes };
+    }
+
+    if (dependent.type === "pet" && field.label === "Vet Notes") {
+      return { ...field, value: notes };
+    }
+
+    if (dependent.type === "elder" && field.label === "Health Notes") {
+      return { ...field, value: notes };
+    }
+
+    return field;
+  });
+}
 
 function CareOSLogo() {
   return (
@@ -198,7 +249,12 @@ function CareDetailIcon({ label }: { label: string }) {
     );
   }
 
-  if (label.toLowerCase().includes("medicine") || label.toLowerCase().includes("vet") || label.toLowerCase().includes("health")) {
+  if (
+    label.toLowerCase().includes("medicine") ||
+    label.toLowerCase().includes("medication") ||
+    label.toLowerCase().includes("vet") ||
+    label.toLowerCase().includes("health")
+  ) {
     return (
       <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="m8.2 15.8 7.6-7.6a3.4 3.4 0 0 1 4.8 4.8L13 20.6a3.4 3.4 0 0 1-4.8-4.8Z" />
@@ -278,7 +334,10 @@ export default function DependentProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileFirstName, setProfileFirstName] = useState("");
   const [profileLastName, setProfileLastName] = useState("");
+  const [profileType, setProfileType] = useState<DependentType>("child");
+  const [profileGender, setProfileGender] = useState("");
   const [profileBirthDate, setProfileBirthDate] = useState("");
+  const [profileNotes, setProfileNotes] = useState("");
   const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
@@ -350,6 +409,8 @@ export default function DependentProfilePage() {
   const initials = displayName.slice(0, 1).toUpperCase();
 
   const config = dependent ? typeConfig[dependent.type] : null;
+  const editConfig = typeConfig[profileType];
+  const importantDetailFields = dependent && config ? getImportantDetailFields(dependent, config) : [];
   const canEditProfile = Boolean(dependent);
   const profilePhotoSrc = profilePhotoPreview || dependent?.photo_url || "";
 
@@ -369,7 +430,10 @@ export default function DependentProfilePage() {
     const { firstName, lastName } = splitProfileName(nextDependent.name);
     setProfileFirstName(firstName);
     setProfileLastName(lastName);
+    setProfileType(nextDependent.type);
+    setProfileGender(nextDependent.gender || "");
     setProfileBirthDate(getDateInputValue(nextDependent.date_of_birth));
+    setProfileNotes(nextDependent.notes || "");
     setProfilePhotoFile(null);
     setProfilePhotoPreview("");
     setProfileMessage("");
@@ -433,31 +497,27 @@ export default function DependentProfilePage() {
       const safeName = profilePhotoFile.name.replace(/[^a-zA-Z0-9._-]/g, "-");
       const storagePath = `${dependent.family_id}/${dependent.id}/profile-${Date.now()}-${safeName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from(PROFILE_PHOTO_BUCKET)
-        .upload(storagePath, profilePhotoFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
+      try {
+        nextPhotoUrl = await uploadDependentPhoto(profilePhotoFile, storagePath);
+      } catch (uploadError) {
         setSavingProfile(false);
-        setProfileMessage(uploadError.message);
+        setProfileMessage(uploadError instanceof Error ? uploadError.message : "Photo could not be uploaded.");
         return;
       }
-
-      const { data: publicUrlData } = supabase.storage.from(PROFILE_PHOTO_BUCKET).getPublicUrl(storagePath);
-      nextPhotoUrl = publicUrlData.publicUrl;
     }
 
     const nextName = [firstName, lastName].filter(Boolean).join(" ");
+    const nextNotes = profileNotes.trim();
 
     const { data, error } = await supabase
       .from("dependents")
       .update({
         name: nextName,
+        type: profileType,
+        gender: profileGender || null,
         date_of_birth: profileBirthDate || null,
         photo_url: nextPhotoUrl,
+        notes: nextNotes || null,
       })
       .eq("id", dependent.id)
       .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, created_at, legacy_child_id")
@@ -629,8 +689,8 @@ export default function DependentProfilePage() {
                           {profilePhotoSrc ? (
                             <img src={profilePhotoSrc} alt={dependent.name} className="h-28 w-28 object-cover" />
                           ) : (
-                            <div className={`flex h-28 w-28 items-center justify-center ${config.avatar}`}>
-                              <DependentTypeIcon type={dependent.type} />
+                            <div className={`flex h-28 w-28 items-center justify-center ${editConfig.avatar}`}>
+                              <DependentTypeIcon type={profileType} />
                             </div>
                           )}
                         </div>
@@ -665,6 +725,31 @@ export default function DependentProfilePage() {
                               placeholder="Hakobyan"
                             />
                           </label>
+                          <label className="text-xs font-bold text-[#64748B]">
+                            Type
+                            <select
+                              value={profileType}
+                              onChange={(event) => setProfileType(event.target.value as DependentType)}
+                              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                            >
+                              <option value="child">Child</option>
+                              <option value="pet">Pet</option>
+                              <option value="elder">Elder</option>
+                            </select>
+                          </label>
+                          <label className="text-xs font-bold text-[#64748B]">
+                            Gender
+                            <select
+                              value={profileGender}
+                              onChange={(event) => setProfileGender(event.target.value)}
+                              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                            >
+                              <option value="">Not added</option>
+                              <option value="female">Female</option>
+                              <option value="male">Male</option>
+                              <option value="non_binary">Non-binary</option>
+                            </select>
+                          </label>
                           <label className="text-xs font-bold text-[#64748B] sm:col-span-2">
                             Date of birth
                             <input
@@ -672,6 +757,35 @@ export default function DependentProfilePage() {
                               value={profileBirthDate}
                               onChange={(event) => setProfileBirthDate(event.target.value)}
                               className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="mt-5 rounded-[24px] bg-[#F8FAFC] p-4 ring-1 ring-blue-50">
+                          <div className="flex items-center gap-3">
+                            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${editConfig.avatar}`}>
+                              <DependentTypeIcon type={profileType} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-[#0F172A]">Care details</p>
+                              <p className="text-xs leading-5 text-[#64748B]">
+                                Add the care notes your family should know.
+                              </p>
+                            </div>
+                          </div>
+                          <label className="mt-4 block text-xs font-bold text-[#64748B]">
+                            Care notes
+                            <textarea
+                              value={profileNotes}
+                              onChange={(event) => setProfileNotes(event.target.value)}
+                              className="mt-2 min-h-28 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#0F172A] outline-none transition focus:border-[#2563EB]"
+                              placeholder={
+                                profileType === "pet"
+                                  ? "Feeding, walking, vet notes, or anything a caregiver should know..."
+                                  : profileType === "elder"
+                                    ? "Medication, health notes, care plan, or daily support details..."
+                                    : "Routine, health notes, care plan, or anything a caregiver should know..."
+                              }
                             />
                           </label>
                         </div>
@@ -777,19 +891,11 @@ export default function DependentProfilePage() {
                   <span className="rounded-full bg-[#F8FAFC] px-4 py-2 text-xs font-semibold text-[#64748B]">
                     {family?.name || "Family"}
                   </span>
-                  <button
-                    type="button"
-                    disabled
-                    title="Details editing is coming soon"
-                    className="rounded-full border border-blue-100 bg-blue-50 px-4 py-2 text-xs font-black text-[#2563EB] opacity-75"
-                  >
-                    Edit details
-                  </button>
                 </div>
               </div>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {config.fields.map((field) => (
+                {importantDetailFields.map((field) => (
                   <div key={field.label} className="rounded-[26px] bg-[#F8FAFC] p-6">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-sm">
                       <CareDetailIcon label={field.label} />
@@ -799,13 +905,6 @@ export default function DependentProfilePage() {
                   </div>
                 ))}
               </div>
-
-              {dependent.notes && (
-                <div className="mt-5 rounded-[26px] border border-blue-100 bg-blue-50/40 p-5">
-                  <p className="text-sm font-black text-[#0F172A]">Notes</p>
-                  <p className="mt-2 text-sm leading-6 text-[#64748B]">{dependent.notes}</p>
-                </div>
-              )}
             </section>
           </div>
         </div>
