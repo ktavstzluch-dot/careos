@@ -7,6 +7,8 @@ import { getProfileFromUser } from "@/lib/profile";
 
 type DependentType = "child" | "pet" | "elder";
 
+type CareDetails = Record<string, Record<string, string>>;
+
 type Dependent = {
   id: string;
   family_id: string;
@@ -16,6 +18,7 @@ type Dependent = {
   date_of_birth: string | null;
   gender: string | null;
   notes: string | null;
+  care_details: CareDetails | null;
   created_at: string;
   legacy_child_id: string | null;
 };
@@ -35,6 +38,20 @@ type CareLog = {
 type Family = {
   id: string;
   name: string;
+};
+
+type DetailField = {
+  id: string;
+  label: string;
+  placeholder: string;
+};
+
+type DetailSection = {
+  id: string;
+  label: string;
+  emptyText: string;
+  iconLabel: string;
+  fields: DetailField[];
 };
 
 const navItems = [
@@ -115,7 +132,7 @@ const typeConfig: Record<
     headline: string;
     summary: string;
     primaryCare: string;
-    fields: Array<{ label: string; value: string; icon: string }>;
+    sections: DetailSection[];
   }
 > = {
   child: {
@@ -127,10 +144,38 @@ const typeConfig: Record<
     headline: "Child care profile",
     summary: "Meals, naps, activities, medicine, photos and caregiver notes.",
     primaryCare: "Nanny visit",
-    fields: [
-      { label: "Routine", value: "Routine instructions pending", icon: "🧸" },
-      { label: "Health Notes", value: "Health notes pending", icon: "⚕️" },
-      { label: "Care Plan", value: "Care plan pending", icon: "📋" },
+    sections: [
+      {
+        id: "routine",
+        label: "Routine",
+        emptyText: "Instructions pending",
+        iconLabel: "Routine",
+        fields: [
+          { id: "routine_instructions", label: "Routine instructions", placeholder: "Nap, play, school pickup, bedtime routine..." },
+          { id: "daily_schedule", label: "Daily schedule", placeholder: "Breakfast at 8, nap at 1, outdoor play after snack..." },
+        ],
+      },
+      {
+        id: "child_health_notes",
+        label: "Health Notes",
+        emptyText: "Health notes pending",
+        iconLabel: "Health Notes",
+        fields: [
+          { id: "allergies", label: "Allergies", placeholder: "Food, medicine, seasonal allergies..." },
+          { id: "restrictions", label: "Restrictions", placeholder: "Activities, foods, screen time, safety notes..." },
+          { id: "health_notes", label: "Health notes", placeholder: "Anything caregivers should know today..." },
+        ],
+      },
+      {
+        id: "child_care_plan",
+        label: "Care Plan",
+        emptyText: "Instructions pending",
+        iconLabel: "Care Plan",
+        fields: [
+          { id: "caregiver_instructions", label: "Caregiver instructions", placeholder: "How to comfort, support, and care for them..." },
+          { id: "daily_care_guidance", label: "Daily care guidance", placeholder: "Preferred activities, routines, family guidance..." },
+        ],
+      },
     ],
   },
   pet: {
@@ -142,10 +187,37 @@ const typeConfig: Record<
     headline: "Pet care profile",
     summary: "Walks, feeding, water, medicine, vet notes and shared Moments.",
     primaryCare: "Dog walk",
-    fields: [
-      { label: "Feeding", value: "Feeding instructions pending", icon: "🥣" },
-      { label: "Walking", value: "Walk instructions pending", icon: "🐕" },
-      { label: "Vet Notes", value: "Vet notes pending", icon: "🏥" },
+    sections: [
+      {
+        id: "feeding",
+        label: "Feeding",
+        emptyText: "Instructions pending",
+        iconLabel: "Feeding",
+        fields: [
+          { id: "feeding_instructions", label: "Feeding instructions", placeholder: "Food type, portions, water, treats..." },
+          { id: "food_schedule", label: "Food schedule", placeholder: "Morning meal, evening meal, treat timing..." },
+        ],
+      },
+      {
+        id: "walking",
+        label: "Walking",
+        emptyText: "Instructions pending",
+        iconLabel: "Walking",
+        fields: [
+          { id: "walking_instructions", label: "Walking instructions", placeholder: "Leash, route, park, behavior notes..." },
+          { id: "walk_schedule", label: "Walk schedule", placeholder: "Morning walk, afternoon walk, evening potty break..." },
+        ],
+      },
+      {
+        id: "vet",
+        label: "Vet",
+        emptyText: "Not added yet",
+        iconLabel: "Vet",
+        fields: [
+          { id: "veterinarian_notes", label: "Veterinarian notes", placeholder: "Vet name, clinic, contact, appointments..." },
+          { id: "medical_notes", label: "Medical notes", placeholder: "Medication, restrictions, health observations..." },
+        ],
+      },
     ],
   },
   elder: {
@@ -157,34 +229,59 @@ const typeConfig: Record<
     headline: "Elder care profile",
     summary: "Medication, care visits, health notes, reminders and daily support.",
     primaryCare: "Care visit",
-    fields: [
-      { label: "Medication", value: "Medication instructions pending", icon: "💊" },
-      { label: "Health Notes", value: "Health notes pending", icon: "🩺" },
-      { label: "Care Plan", value: "Care plan pending", icon: "📋" },
+    sections: [
+      {
+        id: "medication",
+        label: "Medication",
+        emptyText: "Instructions pending",
+        iconLabel: "Medication",
+        fields: [
+          { id: "medication_instructions", label: "Medication instructions", placeholder: "Medication names, dosage, how to give..." },
+          { id: "medication_schedule", label: "Medication schedule", placeholder: "Morning, afternoon, evening timing..." },
+          { id: "medication_notes", label: "Medication notes", placeholder: "Side effects, reminders, family notes..." },
+        ],
+      },
+      {
+        id: "elder_health_notes",
+        label: "Health Notes",
+        emptyText: "Health notes pending",
+        iconLabel: "Health Notes",
+        fields: [
+          { id: "health_conditions", label: "Health conditions", placeholder: "Known conditions caregivers should know..." },
+          { id: "allergies", label: "Allergies", placeholder: "Medication, food, seasonal allergies..." },
+          { id: "restrictions", label: "Restrictions", placeholder: "Mobility, diet, activity restrictions..." },
+          { id: "health_notes", label: "Health notes", placeholder: "Daily comfort, symptoms, observation notes..." },
+        ],
+      },
+      {
+        id: "elder_care_plan",
+        label: "Care Plan",
+        emptyText: "Instructions pending",
+        iconLabel: "Care Plan",
+        fields: [
+          { id: "daily_care_plan", label: "Daily care plan", placeholder: "Meals, support, rest, reminders..." },
+          { id: "routines", label: "Routines", placeholder: "Morning routine, evening routine, preferred flow..." },
+          { id: "caregiver_instructions", label: "Caregiver instructions", placeholder: "Family guidance for comfort and trust..." },
+        ],
+      },
     ],
   },
 };
 
-function getImportantDetailFields(dependent: Dependent, config: (typeof typeConfig)[DependentType]) {
-  const notes = dependent.notes?.trim();
+function getSectionValues(careDetails: CareDetails | null | undefined, sectionId: string) {
+  const values = careDetails?.[sectionId];
+  return values && typeof values === "object" && !Array.isArray(values) ? values : {};
+}
 
-  return config.fields.map((field) => {
-    if (!notes) return field;
+function getFilledSectionFields(section: DetailSection, careDetails: CareDetails | null | undefined) {
+  const values = getSectionValues(careDetails, section.id);
 
-    if (dependent.type === "child" && field.label === "Care Plan") {
-      return { ...field, value: notes };
-    }
-
-    if (dependent.type === "pet" && field.label === "Vet Notes") {
-      return { ...field, value: notes };
-    }
-
-    if (dependent.type === "elder" && field.label === "Health Notes") {
-      return { ...field, value: notes };
-    }
-
-    return field;
-  });
+  return section.fields
+    .map((field) => ({
+      ...field,
+      value: typeof values[field.id] === "string" ? values[field.id].trim() : "",
+    }))
+    .filter((field) => field.value);
 }
 
 function CareOSLogo() {
@@ -337,10 +434,13 @@ export default function DependentProfilePage() {
   const [profileType, setProfileType] = useState<DependentType>("child");
   const [profileGender, setProfileGender] = useState("");
   const [profileBirthDate, setProfileBirthDate] = useState("");
-  const [profileNotes, setProfileNotes] = useState("");
   const [profilePhotoFile, setProfilePhotoFile] = useState<File | null>(null);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
+  const [editingDetailId, setEditingDetailId] = useState<string | null>(null);
+  const [detailDraft, setDetailDraft] = useState<Record<string, string>>({});
+  const [savingDetail, setSavingDetail] = useState(false);
+  const [detailMessage, setDetailMessage] = useState("");
 
   async function loadProfile() {
     const { data: userData } = await supabase.auth.getUser();
@@ -362,7 +462,7 @@ export default function DependentProfilePage() {
 
     const { data: dependentData, error: dependentError } = await supabase
       .from("dependents")
-      .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, created_at, legacy_child_id")
+      .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, care_details, created_at, legacy_child_id")
       .eq("id", dependentId)
       .maybeSingle();
 
@@ -410,7 +510,7 @@ export default function DependentProfilePage() {
 
   const config = dependent ? typeConfig[dependent.type] : null;
   const editConfig = typeConfig[profileType];
-  const importantDetailFields = dependent && config ? getImportantDetailFields(dependent, config) : [];
+  const importantDetailSections = config?.sections || [];
   const canEditProfile = Boolean(dependent);
   const profilePhotoSrc = profilePhotoPreview || dependent?.photo_url || "";
 
@@ -433,7 +533,6 @@ export default function DependentProfilePage() {
     setProfileType(nextDependent.type);
     setProfileGender(nextDependent.gender || "");
     setProfileBirthDate(getDateInputValue(nextDependent.date_of_birth));
-    setProfileNotes(nextDependent.notes || "");
     setProfilePhotoFile(null);
     setProfilePhotoPreview("");
     setProfileMessage("");
@@ -507,8 +606,6 @@ export default function DependentProfilePage() {
     }
 
     const nextName = [firstName, lastName].filter(Boolean).join(" ");
-    const nextNotes = profileNotes.trim();
-
     const { data, error } = await supabase
       .from("dependents")
       .update({
@@ -517,10 +614,9 @@ export default function DependentProfilePage() {
         gender: profileGender || null,
         date_of_birth: profileBirthDate || null,
         photo_url: nextPhotoUrl,
-        notes: nextNotes || null,
       })
       .eq("id", dependent.id)
-      .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, created_at, legacy_child_id")
+      .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, care_details, created_at, legacy_child_id")
       .single();
 
     setSavingProfile(false);
@@ -536,6 +632,69 @@ export default function DependentProfilePage() {
     setProfilePhotoFile(null);
     setProfilePhotoPreview("");
     setProfileMessage("Profile updated.");
+  }
+
+  function handleStartDetailEdit(section: DetailSection) {
+    if (!dependent) return;
+
+    const values = getSectionValues(dependent.care_details, section.id);
+    setEditingDetailId(section.id);
+    setDetailDraft(
+      section.fields.reduce<Record<string, string>>((draft, field) => {
+        draft[field.id] = typeof values[field.id] === "string" ? values[field.id] : "";
+        return draft;
+      }, {}),
+    );
+    setDetailMessage("");
+  }
+
+  function handleCancelDetailEdit() {
+    setEditingDetailId(null);
+    setDetailDraft({});
+    setDetailMessage("");
+  }
+
+  async function handleSaveDetailSection(section: DetailSection) {
+    setDetailMessage("");
+
+    if (!dependent) return;
+
+    setSavingDetail(true);
+
+    const sectionValues = section.fields.reduce<Record<string, string>>((values, field) => {
+      const nextValue = detailDraft[field.id]?.trim() || "";
+
+      if (nextValue) {
+        values[field.id] = nextValue;
+      }
+
+      return values;
+    }, {});
+
+    const nextCareDetails: CareDetails = {
+      ...(dependent.care_details || {}),
+      [section.id]: sectionValues,
+    };
+
+    const { data, error } = await supabase
+      .from("dependents")
+      .update({ care_details: nextCareDetails })
+      .eq("id", dependent.id)
+      .eq("family_id", dependent.family_id)
+      .select("id, family_id, type, name, photo_url, date_of_birth, gender, notes, care_details, created_at, legacy_child_id")
+      .single();
+
+    setSavingDetail(false);
+
+    if (error) {
+      setDetailMessage(error.message);
+      return;
+    }
+
+    setDependent(data as Dependent);
+    setEditingDetailId(null);
+    setDetailDraft({});
+    setDetailMessage(`${section.label} updated.`);
   }
 
   async function handleAddQuickLog() {
@@ -761,35 +920,6 @@ export default function DependentProfilePage() {
                           </label>
                         </div>
 
-                        <div className="mt-5 rounded-[24px] bg-[#F8FAFC] p-4 ring-1 ring-blue-50">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${editConfig.avatar}`}>
-                              <DependentTypeIcon type={profileType} />
-                            </div>
-                            <div>
-                              <p className="text-sm font-black text-[#0F172A]">Care details</p>
-                              <p className="text-xs leading-5 text-[#64748B]">
-                                Add the care notes your family should know.
-                              </p>
-                            </div>
-                          </div>
-                          <label className="mt-4 block text-xs font-bold text-[#64748B]">
-                            Care notes
-                            <textarea
-                              value={profileNotes}
-                              onChange={(event) => setProfileNotes(event.target.value)}
-                              className="mt-2 min-h-28 w-full rounded-2xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold leading-6 text-[#0F172A] outline-none transition focus:border-[#2563EB]"
-                              placeholder={
-                                profileType === "pet"
-                                  ? "Feeding, walking, vet notes, or anything a caregiver should know..."
-                                  : profileType === "elder"
-                                    ? "Medication, health notes, care plan, or daily support details..."
-                                    : "Routine, health notes, care plan, or anything a caregiver should know..."
-                              }
-                            />
-                          </label>
-                        </div>
-
                         {profileMessage && (
                           <p className="mt-3 text-xs font-semibold text-[#64748B]">{profileMessage}</p>
                         )}
@@ -895,16 +1025,95 @@ export default function DependentProfilePage() {
               </div>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {importantDetailFields.map((field) => (
-                  <div key={field.label} className="rounded-[26px] bg-[#F8FAFC] p-6">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-sm">
-                      <CareDetailIcon label={field.label} />
+                {importantDetailSections.map((section) => {
+                  const filledFields = getFilledSectionFields(section, dependent.care_details);
+                  const isEditing = editingDetailId === section.id;
+
+                  return (
+                    <div
+                      key={section.id}
+                      className={`rounded-[26px] bg-[#F8FAFC] p-6 transition ${
+                        isEditing ? "ring-2 ring-[#2563EB]/30" : "hover:bg-blue-50/50"
+                      }`}
+                    >
+                      <button type="button" onClick={() => handleStartDetailEdit(section)} className="block w-full text-left">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#2563EB] shadow-sm">
+                            <CareDetailIcon label={section.iconLabel} />
+                          </div>
+                          <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-[#2563EB] ring-1 ring-blue-100">
+                            Edit
+                          </span>
+                        </div>
+                        <p className="mt-4 text-sm font-black text-[#0F172A]">{section.label}</p>
+                        <div className="mt-2 space-y-2">
+                          {filledFields.length === 0 ? (
+                            <p className="text-xs leading-5 text-[#64748B]">{section.emptyText}</p>
+                          ) : (
+                            filledFields.slice(0, 2).map((field) => (
+                              <div key={field.id}>
+                                <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#94A3B8]">{field.label}</p>
+                                <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-[#64748B]">{field.value}</p>
+                              </div>
+                            ))
+                          )}
+                          {filledFields.length > 2 && (
+                            <p className="text-[11px] font-bold text-[#2563EB]">+{filledFields.length - 2} more details</p>
+                          )}
+                        </div>
+                      </button>
+
+                      {isEditing && (
+                        <div className="mt-5 rounded-[22px] border border-blue-100 bg-white p-4">
+                          <div className="space-y-3">
+                            {section.fields.map((field) => (
+                              <label key={field.id} className="block text-xs font-bold text-[#64748B]">
+                                {field.label}
+                                <textarea
+                                  value={detailDraft[field.id] || ""}
+                                  onChange={(event) =>
+                                    setDetailDraft((draft) => ({
+                                      ...draft,
+                                      [field.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="mt-2 min-h-24 w-full rounded-2xl border border-blue-100 bg-[#F8FAFC] px-4 py-3 text-sm font-semibold leading-6 text-[#0F172A] outline-none transition focus:border-[#2563EB] focus:bg-white"
+                                  placeholder={field.placeholder}
+                                />
+                              </label>
+                            ))}
+                          </div>
+
+                          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveDetailSection(section)}
+                              disabled={savingDetail}
+                              className="rounded-full bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {savingDetail ? "Saving..." : "Save section"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelDetailEdit}
+                              disabled={savingDetail}
+                              className="rounded-full bg-white px-5 py-3 text-sm font-bold text-[#64748B] ring-1 ring-blue-100 transition hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="mt-4 text-sm font-black text-[#0F172A]">{field.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-[#64748B]">{field.value}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
+              {detailMessage && (
+                <p className="mt-4 rounded-full bg-emerald-50 px-4 py-2 text-xs font-bold text-[#22C55E]">
+                  {detailMessage}
+                </p>
+              )}
             </section>
           </div>
         </div>
